@@ -3,6 +3,7 @@
 
 #include "Rozum-Servo-Drives-API/c/include/api.h" 
 #include <stdint.h>
+#include <stdexcept>
 
 typedef struct {
     float position;      // 4 bytes: Posición (grados o radianes). Requiere alta precisión decimal.
@@ -11,16 +12,28 @@ typedef struct {
     int8_t temperature;  // 1 byte: Temperatura en ºC. Un int8_t permite de -128ºC a 127ºC, margen de sobra para el sobrecalentamiento de un motor.
 } RozumMotorData;        // Estructura almacenar datos del motor
 
+
+
 class RozumMotor {
 private:
     // --- Punteros de la API de Rozum ---
     rr_servo_t* motor;             // Puntero que se mete en el motor
     rr_can_interface_t* iface;     // Puntero a la interfaz CAN para enviar y recibir mensajes del motor
-    
-    // --- Variables de telemetría motor ---
-    RozumMotorData telemetry_motor; // Estructura para almacenar los datos de telemetría del motor
+
+    // --- Limites del motor y escalas de unidades ---
+    const int MAX_VELOCITY = 50;        // Velocidad (rpm) // 55 en apuntes
+    const int MAX_POSITION = 200;       // Posición (grados) Por definir
+    const int MIN_POSITION = 0;         // Posición (grados) Por definir
+
+
 
 public:
+    // --- Variables de telemetría motor ---
+    RozumMotorData telemetry_motor;     // Estructura para almacenar los datos de telemetría del motor
+    RozumMotorData ref_params_motor;    // Objetivo de referencia para control
+    RozumMotorData actuation_motor;     // Valores de actuación enviados al motor
+
+
     // --- Constructor y Destructor ---
     RozumMotor(rr_can_interface_t* interface, int hardware_id);
     ~RozumMotor();
@@ -31,20 +44,23 @@ public:
     void update_cache();           // Actualiza los valores cacheados
 
     // --- Lectura de Variables (Telemetría) ---
-    void read_all();              // Sustituye a read_all_arm
+    void read_all_parameters();   // Sustituye a read_all_arm
     void read_position();         // Sustituye a read_pos_arm
     void read_velocity();         // Sustituye a read_vel_arm
     void read_current();          // Sustituye a read_current_arm
     void read_temperature();      // Sustituye a read_temp_arm
 
     // --- Control de Movimiento ---
-    // Incluyo un parámetro de límite para replicar la lógica de seguridad que tenías
-    void set_velocity(float target_vel, float max_pos_limit); // Sustituye a set_velocity_arm[cite: 3]
-    void set_position(float target_pos, float max_pos_limit); // Sustituye a set_position_arm[cite: 3]
+    // void control_PID();
+    void set_velocity(); // Sustituye a set_velocity_arm
+    void set_position(); // Sustituye a set_position_arm
+
 
     // --- Gestión de Hardware ---
-    int get_id();                  // Sustituye a get_motor_id[cite: 3]
-    void set_id(int new_id);       // Modifica y guarda el ID en memoria flash[cite: 3]
+    void set_velocity_limits();    // Establece los límites de velocidad del motor 
+    int get_id();                  // Sustituye a get_motor_id
+    void set_id(int new_id);       // Modifica y guarda el ID en memoria flash
+
 };
 
 #endif // ROZUM_MOTOR_HPP

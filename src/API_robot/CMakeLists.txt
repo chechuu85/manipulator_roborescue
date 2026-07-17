@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(motors_com)
+project(api_robot)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -8,12 +8,18 @@ endif()
 # dependencias_externas
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+
 find_package(dynamixel_sdk REQUIRED)
 find_package(Threads REQUIRED) # Para <thread> y <mutex>
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
+# ==========================================
+# CONFIGURAR API DE ROZUM
+# ==========================================
 # Ruta de la API de Rozum y su biblioteca compilada
 set(ROZUM_API_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/Rozum-Servo-Drives-API/c)
 set(ROZUM_API_LIB ${ROZUM_API_ROOT}/build/libservo_api.a)
@@ -52,5 +58,13 @@ endif()
 include_directories(
   include
 )
+
+add_executable(API_robot src/motor_dinamixel.cpp src/API_robot.cpp)
+
+install(TARGETS
+  API_robot
+  DESTINATION lib/${PROJECT_NAME})
+
+ament_target_dependencies(API_robot dynamixel_sdk geometry_msgs std_msgs )
 
 ament_package()

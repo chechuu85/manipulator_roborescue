@@ -1,4 +1,4 @@
-#include "motors_com/rozum.hpp"
+#include "API_robot/motor_rozum.hpp"
 
 // ==========================================
 // CONSTRUCTOR Y DESTRUCTOR
@@ -27,7 +27,7 @@ RozumMotor::~RozumMotor(){
     if (motor != nullptr) {
         
         rr_servo_deactivate(motor);     // Desactiva la fuerza del motor antes de liberar recursos
-        rr_servo_deinit(motor);         // Libera los recursos del motor 
+        rr_deinit_servo(motor);         // Libera los recursos del motor 
         motor = nullptr;                // Evita el uso de punteros colgantes 
     }
 }
@@ -72,7 +72,7 @@ void RozumMotor::update_cache(){
 // LECTURA DE VARIABLES (TELEMETRÍA)
 // ==========================================
 
-void RozumMotor::read_all(){
+void RozumMotor::read_all_parameters(){
     update_cache(); // Asegura datos actualizados 
 
     // Leer los valores cacheados y almacenarlo en la estructura de telemetría 
@@ -106,13 +106,56 @@ void RozumMotor::read_temperature() {
 // CONTROL DE MOVIMIENTO
 // ==========================================
 
-// void RozumMotor::set_velocity(float target_vel, float max_pos_limit) ...
-// void RozumMotor::set_position(float target_pos, float max_pos_limit) ...
+void RozumMotor::set_velocity(){
+    if (motor == nullptr) return;
+
+    // Detener el motor si se exceden los límites de posición
+    if (actuation_motor.velocity > 0 && (actuation_motor.position > MAX_POSITION || actuation_motor.position < MIN_POSITION)){
+        actuation_motor.velocity = 0; 
+    }
+
+    // Enviar el comando de velocidad 
+    rr_servo_set_velocity(motor, actuation_motor.velocity);
+
+}
+
+void RozumMotor::set_position(){
+    if (motor == nullptr) return;
+
+    // Tener en cuenta los límites de posición
+    actuation_motor.position = std::max(std::min(actuation_motor.position, (float)MAX_POSITION), (float)MIN_POSITION);
+    
+    rr_ret_status_t res_motor = rr_servo_set_position(motor, actuation_motor.position);
+    if (res_motor != RR_SUCCESS){
+        throw std::runtime_error("Error al establecer la posición del motor Rozum con ID: " + std::to_string(rr_servo_get_id(motor)));
+    }
+}
+
 
 // ==========================================
 // GESTIÓN DE HARDWARE
 // ==========================================
 
-// int RozumMotor::get_id() ...
-// void RozumMotor::set_id(int new_id) ...
+void RozumMotor::set_velocity_limits(){
+    if (motor == nullptr) return;
+
+    rr_ret_status_t res_arm = rr_servo_set_velocity_limits(motor, MAX_VELOCITY);
+    if (res_arm != RR_SUCCESS){
+        throw std::runtime_error("Error al establecer los límites de velocidad del motor Rozum con ID: " + std::to_string(rr_servo_get_id(motor)));
+    }
+
+}
+
+int RozumMotor::get_id(){
+    /*
+    Por programar
+    */
+}
+
+void RozumMotor::set_id(int new_id){
+
+    /*
+    Por programar
+    */
+}
 
