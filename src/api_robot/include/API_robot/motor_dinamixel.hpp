@@ -2,18 +2,10 @@
 #define DINAMIXEL_MOTOR_HPP
 
 #include <dynamixel_sdk/dynamixel_sdk.h>
+#include "manipulator_msgs/msg/dinamixel_motor_data.hpp"
 #include <stdint.h>
 #include <stdexcept>
 #include <vector>
-
-// Estructura similar a la de Rozum para mantener consistencia
-typedef struct {
-    float position;       // 4 bytes: Posición (grados o radianes). Requiere alta precisión decimal.
-    float velocity;       // 4 bytes: Velocidad (grados/s o rad/s). Requiere precisión decimal para trayectorias suaves.
-    int16_t current;      // 2 bytes: Corriente (Amperios o miliamperios). Un int16_t (-32,768 a 32,767) es perfecto si se maneja en mA.
-    int8_t temperature;   // 1 byte: Temperatura en ºC. Un int8_t permite de -128ºC a 127ºC, margen de sobra para el sobrecalentamiento de un motor.
-    bool torque_state;    // 1 byte: Estado del torque (activado/desactivado). Un bool es suficiente para este propósito. 
-} DinamixelMotorData;
 
 class DinamixelMotor {
 private:
@@ -46,9 +38,9 @@ private:
 public:
 
     // --- Variables ---
-    DinamixelMotorData telemetry_motor;
-    DinamixelMotorData ref_params_motor;    // Objetivo de referencia para control
-    DinamixelMotorData actuation_motor;     // Valores de actuación enviados al motor
+    manipulator_msgs::msg::DinamixelMotorData telemetry_motor;
+    manipulator_msgs::msg::DinamixelMotorData ref_params_motor;    // Objetivo de referencia para control
+    manipulator_msgs::msg::DinamixelMotorData actuation_motor;     // Valores de actuación enviados al motor
 
 
     // --- Constructor y destructor ---

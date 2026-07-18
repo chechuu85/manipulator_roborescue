@@ -1,0 +1,5 @@
+Instalar: Foxglobe para usar la interfaces:
+sudo snap install foxglove-studio
+
+
+ros2 launch foxglove_bridge foxglove_bridge_launch.xml

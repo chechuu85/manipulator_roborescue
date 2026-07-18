@@ -1,0 +1,2 @@
+manipulator_msgs/RozumMotorData[3] rozum_motors
+manipulator_msgs/DinamixelMotorData[5] dinamixel_motors

@@ -4,6 +4,7 @@
 #include <stdexcept>
 // Incluye tu cabecera donde está definida la clase DinamixelMotor y las constantes
 #include "API_robot/motor_dinamixel.hpp"
+#include "API_robot/motor_rozum.hpp"
 
 int main() {
     std::cout << "--- Inicializando Nodo de Control Dynamixel ---" << std::endl;

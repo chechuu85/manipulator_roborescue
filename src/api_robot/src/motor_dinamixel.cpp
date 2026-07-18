@@ -253,5 +253,6 @@ void DinamixelMotor::set_id(uint8_t new_id) {
     /*
     TODO: 
     */
+    new_id = new_id; // Poner valor para que salte el warning de variable no usada
     return;
 }

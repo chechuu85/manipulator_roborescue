@@ -1,0 +1,10 @@
+#ifndef MANIPULATOR_STRUCTURES_HPP
+#define MANIPULATOR_STRUCTURES_HPP
+
+// Cabecera paraguas que agrupa todas las interfaces generadas por ROS2 para el brazo robótico
+
+#include "manipulator_structures/msg/dinamixel_motor_data.hpp"
+#include "manipulator_structures/msg/rozum_motor_data.hpp"
+#include "manipulator_structures/msg/manipulator_motor_state.hpp"
+
+#endif // MANIPULATOR_STRUCTURES_HPP
