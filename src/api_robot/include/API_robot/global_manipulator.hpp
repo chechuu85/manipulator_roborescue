@@ -9,8 +9,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <array>
-#include <atomic>
-#include <chrono>
+//#include <atomic>
+//#include <chrono>
 
 // Enum basado en la estructura de tu documento
 enum class tarea_dynamixel {
@@ -41,6 +41,7 @@ private:
 
     rclcpp::Publisher<manipulator_msgs::msg::ManipulatorMotorStage>::SharedPtr telemetry_pub_;
     rclcpp::TimerBase::SharedPtr telemetry_timer_;
+    uint8_t timer_period_ms = 50;
 
     // Bucle infinito del hilo secundario
     void gestor_tareas();

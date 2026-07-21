@@ -5,15 +5,16 @@
 // CONSTRUCTOR Y DESTRUCTOR
 // ==========================================
 
-GlobalManipulator::GlobalManipulator(rr_can_interface_t* rozum_iface, dynamixel::PortHandler* port, dynamixel::PacketHandler* packet) {
+GlobalManipulator::GlobalManipulator(rr_can_interface_t* rozum_iface, dynamixel::PortHandler* port, dynamixel::PacketHandler* packet) 
+    : Node("manipulator_node"){
     // Inicializamos las instancias de los conjuntos de motores con sus IDs por defecto
     arm = new RozumArm(rozum_iface, 123, 124, 125); // IDs estándar de Rozum en tu código
     claw = new DynamixelClaw(port, packet, 1, 2, 3, 5, 12); // IDs estándar de Dynamixel en tu código
 
     // Se define un timer de 50ms (20Hz) y publicador
     telemetry_pub_ = this->create_publisher<manipulator_msgs::msg::ManipulatorMotorStage>("manipulator_telemetry", 10);
-    telemetry_timer_ = this->create_wall_timer(
-        50ms, std::bind(&GlobalManipulator::publish_telemetry_callback, this));
+    telemetry_timer_ = this->create_wall_timer(std::chrono::milliseconds(timer_period_ms)
+        , std::bind(&GlobalManipulator::publish_telemetry_callback, this));
 }
 
 GlobalManipulator::~GlobalManipulator() {
@@ -27,16 +28,16 @@ GlobalManipulator::~GlobalManipulator() {
 // ==========================================
 
 void GlobalManipulator::init() {
-    // 1. Activar brazo Rozum
+    // Activar brazo Rozum
     arm->activate_all();
     arm->setup_telemetry_cache_all();
 
-    // 2. Activar garra Dynamixel
+    // Activar garra Dynamixel
     claw->set_mode_all(VELOCITY_MODE); // O POSITION_MODE según necesidad
     claw->set_torque_all(true);
     claw->set_limits_all();
 
-    // 3. Iniciar el gestor de tareas en un hilo separado
+    // Iniciar el gestor de tareas en un hilo separado
     hilo_dynamixel = std::thread(&GlobalManipulator::gestor_tareas, this);
 }
 

@@ -4,32 +4,36 @@
 #include <array>
 #include <atomic>
 
-// Inclusiones de las APIs base (Ajusta las rutas a tu proyecto)
-#include "./Rozum-Servo-Drives-API/c/include/api.h"
+// Inclusiones de las APIs base
+#include "api.h"
 #include <dynamixel_sdk/dynamixel_sdk.h>
 
-// Inclusión de la nueva clase global
+// Inclusión de ROS2 y la nueva clase del nodo global
+#include "rclcpp/rclcpp.hpp"
 #include "API_robot/global_manipulator.hpp"
 
-// Variable atómica para controlar el bucle (equivalente a tu variable Running original)
-std::atomic<bool> Running(true);
+// Variable atómica para controlar el bucle global de ejecución
+extern std::atomic<bool> Running; // O la que uses en tu proyecto
 
-int main() {
-    std::cout << "Iniciando sistema de control del brazo manipulador..." << std::endl;
+int main(int argc, char * argv[]) {
+    std::cout << "Iniciando sistema de control del brazo manipulador con ROS2..." << std::endl;
+
+    // INICIALIZAR EL ENTORNO DE ROS2
+    rclcpp::init(argc, argv);
 
     // ==========================================
-    // 1. INICIALIZACIÓN DE PUERTOS
+    // INICIALIZACIÓN DE PUERTOS FÍSICOS
     // ==========================================
     
     // Interfaz CAN para los motores Rozum 
-    rr_can_interface_t* rozum_iface = rr_init_interface("/dev/rozum_api");
+    rr_can_interface_t* rozum_iface = rr_init_interface("/dev/ttyACM0");
     if (!rozum_iface) {
         std::cerr << "Error al abrir la interfaz CAN de Rozum." << std::endl;
         return -1;
     }
 
     // Handlers para los motores Dynamixel 
-    dynamixel::PortHandler* portHandler = dynamixel::PortHandler::getPortHandler("/dev/u2d2_dyn");
+    dynamixel::PortHandler* portHandler = dynamixel::PortHandler::getPortHandler("/dev/ttyUSB0");
     dynamixel::PacketHandler* packetHandler = dynamixel::PacketHandler::getPacketHandler(2.0);
 
     if (!portHandler->openPort()) {
@@ -42,61 +46,60 @@ int main() {
     }
 
     // ==========================================
-    // 2. ARRANQUE DEL ROBOT
+    // ARRANQUE DEL ROBOT Y NODO ROS2
     // ==========================================
     
-    // Instanciamos la clase global pasándole las interfaces de hardware ya abiertas
-    GlobalManipulator robot(rozum_iface, portHandler, packetHandler);
+    // Instanciamos la clase global que hereda de rclcpp::Node
+    auto robot = std::make_shared<GlobalManipulator>(rozum_iface, portHandler, packetHandler);
     
-    // Esta función activa el torque, modos de operación y arranca el hilo paralelo de Dynamixel
-    robot.init(); 
-    std::cout << "Robot inicializado correctamente. Entrando al bucle de control." << std::endl;
+    // Activa el torque, modos de operación y arranca el hilo interno de Dynamixel
+    robot->init(); 
+    std::cout << "Robot inicializado correctamente." << std::endl;
 
-    // Arrays para enviar comandos
+    // 4. LANZAR EL SPIN DE ROS2 EN UN HILO SECUNDARIO EXCLUSIVO
+    // Esto evita que rclcpp::spin() bloquee el hilo principal del brazo/Rozum.
+    // El nodo procesará sus suscripciones (ej. "keyboard_input") y publicaciones en este hilo.
+    std::thread ros_thread([robot]() {
+        rclcpp::spin(robot);
+    });
+
+    // ==========================================
+    // HILO PRINCIPAL: CONTROL DE ROZUM Y GUI
+    // ==========================================
+    // Aquí mantienes el control absoluto del hilo principal para los motores Rozum,
+    // la lectura local (si aplica) y la interfaz visual SDL.
+    
     std::array<float, 3> arm_target_vels = {0.0f, 0.0f, 0.0f};
     std::array<float, 5> claw_target_vels = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
-    // ==========================================
-    // 3. BUCLE DE CONTROL PRINCIPAL
-    // ==========================================
-    
-    // Simulamos el bucle "full_manual_mode" original
+    // Bucle principal (ej. tu modo manual o bucle de renderizado)
     while (Running) {
         
-        // A. AQUÍ LEERÍAS EL MANDO O TECLADO (Omitido por brevedad)
-        // read_keyboard() o read_controller() modificarían tus objetivos de velocidad
+        // A. Aquí puedes gestionar eventos locales o dejar que el nodo ROS2 
+        // reciba los comandos externos y los sincronice con el brazo.
         
-        // Simulamos dar una pequeña velocidad a algunos motores para el ejemplo
-        arm_target_vels = {5.0f, 2.0f, 0.0f};
-        claw_target_vels = {10.0f, 10.0f, 0.0f, 0.0f, 0.0f};
+        // B. Envío y control de velocidades para Rozum en el hilo principal
+        // robot->set_velocities(...);
 
-        // B. ENVIAR COMANDOS DE MOVIMIENTO
-        // Esto envía la velocidad al brazo en el hilo principal y despierta al hilo secundario 
-        // para que envíe las velocidades a la garra de manera simultánea.
-        robot.set_velocities(arm_target_vels, claw_target_vels);
-
-        // C. LEER TELEMETRÍA (Variables)
-        // Esto lee las posiciones del brazo en este hilo, mientras el hilo paralelo lee las de Dynamixel
-        robot.read_positions();
-        robot.read_velocities();
-        
-        // D. RETARDO DE ESTABILIZACIÓN
-        // Retardo de 20ms para darle tiempo al sistema y a los motores de responder a la actuación, 
-        // tal como se hacía originalmente con SDL_Delay(20).
+        // C. Retardo de estabilización del bucle (ej. 20ms como tu SDL_Delay)
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        
-        // Condición de salida de prueba (puedes quitarla, es para que el ejemplo no sea infinito)
-        static int contador = 0;
-        if (contador++ > 100) Running = false; 
     }
 
     // ==========================================
-    // 4. CIERRE SEGURO Y LIMPIEZA
+    // CIERRE SEGURO Y LIMPIEZA ORDENADA
     // ==========================================
     std::cout << "\nApagando sistema..." << std::endl;
 
-    // Detiene el hilo de forma segura, apaga el torque de la garra y desactiva los motores
-    robot.deinit(); 
+    // Detenemos ROS2 para que el spin termine
+    rclcpp::shutdown();
+
+    // Esperamos a que el hilo de ROS2 finalice limpiamente
+    if (ros_thread.joinable()) {
+        ros_thread.join();
+    }
+
+    // Detiene el hilo de Dynamixel, quita los torques y desactiva dispositivos
+    robot->deinit(); 
     
     // Cierra el puerto serie de Dynamixel
     portHandler->closePort();
