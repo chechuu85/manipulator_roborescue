@@ -20,11 +20,12 @@ DynamixelClaw::DynamixelClaw(dynamixel::PortHandler* port, dynamixel::PacketHand
 
 DynamixelClaw::~DynamixelClaw() {
     // Apagamos el torque por seguridad al destruir el objeto
-    try {
-        set_torque_all(false); 
-    } catch (...) {
-        // Suprimir excepciones en el destructor
-    }
+    set_torque_all(false); 
+    // try {
+    //     set_torque_all(false); 
+    // } catch (...) {
+    //     // Suprimir excepciones en el destructor
+    // }
 }
 
 // ==========================================
@@ -39,7 +40,7 @@ void DynamixelClaw::set_torque_all(bool state) {
     motor12.set_torque_state(state);
 }
 
-void DynamixelClaw::set_mode_all(uint8_t mode) {
+void DynamixelClaw::set_mode_all(char mode) {
     motor1.set_mode(mode);
     motor2.set_mode(mode);
     motor3.set_mode(mode);
@@ -51,8 +52,33 @@ void DynamixelClaw::set_mode_all(uint8_t mode) {
 // LECTURA DE VARIABLES SÍNCRONA
 // ==========================================
 
+void DynamixelClaw::read_all_parameters() {
+    // 1. Inicializar el paquete de lectura síncrona
+    // Se empieza a leer desde la dirección 126 (Corriente) y se piden 21 bytes en total[cite: 1, 5].
+    dynamixel::GroupSyncRead groupSyncRead(portHandler, packetHandler, READ_CURRENT_ADDRESS, 21);
+    
+    // 2. Añadir los IDs de los 5 motores al paquete
+    motor1.add_ID_to_sync_read(&groupSyncRead);
+    motor2.add_ID_to_sync_read(&groupSyncRead);
+    motor3.add_ID_to_sync_read(&groupSyncRead);
+    motor5.add_ID_to_sync_read(&groupSyncRead);
+    motor12.add_ID_to_sync_read(&groupSyncRead);
+
+    // 3. Disparar la petición por el bus RS-485/TTL
+    if (groupSyncRead.txRxPacket() != COMM_SUCCESS) {
+        throw std::runtime_error("Error en comunicación txRxPacket al leer la telemetría completa de la garra.");
+    }
+
+    // 4. Cada motor busca su propio ID dentro del búfer descargado y extrae sus 4 variables
+    motor1.read_all_parameters(&groupSyncRead);
+    motor2.read_all_parameters(&groupSyncRead);
+    motor3.read_all_parameters(&groupSyncRead);
+    motor5.read_all_parameters(&groupSyncRead);
+    motor12.read_all_parameters(&groupSyncRead);
+}
+
 void DynamixelClaw::read_positions() {
-    // 132 es READ_POSITION_ADDRESS y requiere 4 bytes[cite: 6]
+    // 132 es READ_POSITION_ADDRESS y requiere 4 bytes
     dynamixel::GroupSyncRead groupSyncRead(portHandler, packetHandler, READ_POSITION_ADDRESS, 4);
     
     // Añadimos los motores al paquete de lectura
@@ -75,7 +101,7 @@ void DynamixelClaw::read_positions() {
 }
 
 void DynamixelClaw::read_velocities() {
-    // 128 es READ_VELOCITY_ADDRESS y requiere 4 bytes[cite: 6]
+    // 128 es READ_VELOCITY_ADDRESS y requiere 4 bytes
     dynamixel::GroupSyncRead groupSyncRead(portHandler, packetHandler, READ_VELOCITY_ADDRESS, 4);
     
     motor1.add_ID_to_sync_read(&groupSyncRead);
@@ -96,7 +122,7 @@ void DynamixelClaw::read_velocities() {
 }
 
 void DynamixelClaw::read_currents() {
-    // 126 es READ_CURRENT_ADDRESS y requiere 2 bytes[cite: 6]
+    // 126 es READ_CURRENT_ADDRESS y requiere 2 bytes
     dynamixel::GroupSyncRead groupSyncRead(portHandler, packetHandler, READ_CURRENT_ADDRESS, 2);
     
     motor1.add_ID_to_sync_read(&groupSyncRead);
@@ -117,7 +143,7 @@ void DynamixelClaw::read_currents() {
 }
 
 void DynamixelClaw::read_temperatures() {
-    // 146 es READ_TEMPERATURE_ADDRESS y requiere 1 byte[cite: 6]
+    // 146 es READ_TEMPERATURE_ADDRESS y requiere 1 byte
     dynamixel::GroupSyncRead groupSyncRead(portHandler, packetHandler, READ_TEMPERATURE_ADDRESS, 1);
     
     motor1.add_ID_to_sync_read(&groupSyncRead);
@@ -149,7 +175,7 @@ void DynamixelClaw::set_velocities(const std::array<float, 5>& target_velocities
     motor5.actuation_motor.velocity = target_velocities[3];
     motor12.actuation_motor.velocity = target_velocities[4];
 
-    // 104 es WRITE_VELOCITY_ADDRESS (4 bytes)[cite: 6]
+    // 104 es WRITE_VELOCITY_ADDRESS (4 bytes)
     dynamixel::GroupSyncWrite groupSyncWrite(portHandler, packetHandler, WRITE_VELOCITY_ADDRESS, 4);
 
     // Empaquetamos los datos
@@ -173,7 +199,7 @@ void DynamixelClaw::set_positions(const std::array<float, 5>& target_positions) 
     motor5.actuation_motor.position = target_positions[3];
     motor12.actuation_motor.position = target_positions[4];
 
-    // 116 es WRITE_POSITION_ADDRESS (4 bytes)[cite: 6]
+    // 116 es WRITE_POSITION_ADDRESS (4 bytes)
     dynamixel::GroupSyncWrite groupSyncWrite(portHandler, packetHandler, WRITE_POSITION_ADDRESS, 4);
 
     // Empaquetamos los datos

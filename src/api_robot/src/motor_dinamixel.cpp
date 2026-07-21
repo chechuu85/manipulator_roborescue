@@ -10,7 +10,10 @@ DinamixelMotor::DinamixelMotor(dynamixel::PortHandler* port, dynamixel::PacketHa
 
     }
 
-DinamixelMotor::~DinamixelMotor() {}
+DinamixelMotor::~DinamixelMotor() {
+    // Relajar el motor cuando se apage 
+    set_torque_state(false);
+}
 
 
 // ==========================================
@@ -25,37 +28,33 @@ void DinamixelMotor::set_torque_state(bool state) {
     }
 }
 
-void DinamixelMotor::set_mode(uint8_t mode) {
+void DinamixelMotor::set_mode(char mode) {
+    uint8_t selected_mode;
+    std::string mode_name;
+
+    // Evaluamos el carácter introducido al estilo de tu clase Manipulator
+    if (mode == 'v' || mode == 'V') {
+        selected_mode = VELOCITY_MODE;
+        mode_name = "velocity";
+    } 
+    else if (mode == 'p' || mode == 'P') {
+        selected_mode = POSITION_MODE;
+        mode_name = "position";
+    } 
+    else {
+        // Capturamos cualquier otro carácter para evitar enviar basura al motor
+        throw std::invalid_argument("Error: Modo inválido. Usa 'v'/'V' o 'p'/'P'.");
+    }
 
     // Cambiar el modo de operación y comprobar si funciona
-    if (packetHandler->write1ByteTxRx(portHandler, id, OPERATING_MODE, mode) != COMM_SUCCESS) {
-        throw std::runtime_error("Error: No se pudo cambiar el modo del motor " + std::to_string(id));
+    if (packetHandler->write1ByteTxRx(portHandler, id, OPERATING_MODE, selected_mode) != COMM_SUCCESS) {
+        throw std::runtime_error("Fail to change operating mode to " + mode_name + " mode of motor " + std::to_string(id));
     }
 }
 
 // ==========================================
 // LECTURA DE VARIABLES (TELEMETRÍA)
 // ==========================================
-
-void DinamixelMotor::update_telemetry() {
-    /*
-    TODO: No se sabe si se debe hacer o no
-    */
-}
-
-
-void DinamixelMotor::read_torque_state() { 
-    // Crear variable almacenar resultado de lectura
-    uint8_t torque_state_int;
-    int res_torque = packetHandler->read1ByteTxRx(portHandler, id, READ_TORQUE_ADDRESS, &torque_state_int);
-    
-    // Validar la lectura y convertir a bool 
-    if (res_torque != COMM_SUCCESS) {
-        throw std::runtime_error("Error: No se pudo obtener el estado de torque del motor " + std::to_string(id));
-    }
-    telemetry_motor.torque_state = static_cast<bool>(torque_state_int);
-
-}
 
 void DinamixelMotor::add_ID_to_sync_read(dynamixel::GroupSyncRead* groupSyncRead) {
     // Verificamos por seguridad que el puntero no sea nulo
@@ -71,6 +70,59 @@ void DinamixelMotor::add_ID_to_sync_read(dynamixel::GroupSyncRead* groupSyncRead
     }
 }
 
+void DinamixelMotor::read_all_parameters(dynamixel::GroupSyncRead* groupSyncRead) { 
+    // Según si está usando SyncRead o no, se lee con el método agrupado o individual
+    if (groupSyncRead != nullptr) {
+        
+        // Verificamos si el bloque completo de datos llegó en el paquete sincronizado.
+        // Se asume que groupSyncRead se inicializó en READ_CURRENT_ADDRESS con longitud de 21 bytes.
+        if (groupSyncRead->isAvailable(id, READ_CURRENT_ADDRESS, 21)) {
+            
+            // Extracción de datos desde el búfer de memoria RAM
+            telemetry_motor.position = static_cast<float>(groupSyncRead->getData(id, READ_POSITION_ADDRESS, 4));
+            telemetry_motor.velocity = static_cast<float>(groupSyncRead->getData(id, READ_VELOCITY_ADDRESS, 4));
+            telemetry_motor.current = static_cast<int16_t>(groupSyncRead->getData(id, READ_CURRENT_ADDRESS, 2));
+            telemetry_motor.temperature = static_cast<int8_t>(groupSyncRead->getData(id, READ_TEMPERATURE_ADDRESS, 1));
+            
+        } else {
+            throw std::runtime_error("Error: Telemetría completa no disponible en el paquete para el motor " + std::to_string(this->id));
+        }
+        
+    } else {
+        
+        // --- FALLBACK: LECTURA INDIVIDUAL DIRECTA ---
+        uint32_t raw_position = 0;
+        uint32_t raw_velocity = 0;
+        uint16_t raw_current = 0;
+        uint8_t raw_temperature = 0;
+
+        // Lectura de Posición (4 bytes)
+        if (packetHandler->read4ByteTxRx(portHandler, this->id, READ_POSITION_ADDRESS, &raw_position) != COMM_SUCCESS) {
+            throw std::runtime_error("Error: No se pudo leer la posición del motor " + std::to_string(this->id));
+        }
+        
+        // Lectura de Velocidad (4 bytes)
+        if (packetHandler->read4ByteTxRx(portHandler, this->id, READ_VELOCITY_ADDRESS, &raw_velocity) != COMM_SUCCESS) {
+            throw std::runtime_error("Error: No se pudo leer la velocidad del motor " + std::to_string(this->id));
+        }
+        
+        // Lectura de Corriente (2 bytes)
+        if (packetHandler->read2ByteTxRx(portHandler, this->id, READ_CURRENT_ADDRESS, &raw_current) != COMM_SUCCESS) {
+            throw std::runtime_error("Error: No se pudo leer la corriente del motor " + std::to_string(this->id));
+        }
+        
+        // Lectura de Temperatura (1 byte)
+        if (packetHandler->read1ByteTxRx(portHandler, this->id, READ_TEMPERATURE_ADDRESS, &raw_temperature) != COMM_SUCCESS) {
+            throw std::runtime_error("Error: No se pudo leer la temperatura del motor " + std::to_string(this->id));
+        }
+
+        // Asignación con los casteos correctos definidos en DinamixelMotorData
+        telemetry_motor.position = static_cast<float>(raw_position);
+        telemetry_motor.velocity = static_cast<float>(raw_velocity);
+        telemetry_motor.current = static_cast<int16_t>(raw_current);
+        telemetry_motor.temperature = static_cast<int8_t>(raw_temperature);
+    }
+}
 
 void DinamixelMotor::read_position(dynamixel::GroupSyncRead* groupSyncRead) { 
     // Según si está usando SyncRead o no, se lee con el método agrupado o individual
@@ -163,24 +215,41 @@ void DinamixelMotor::read_temperature(dynamixel::GroupSyncRead* groupSyncRead) {
     }
 }
 
+void DinamixelMotor::read_torque_state() { 
+    // Crear variable almacenar resultado de lectura
+    uint8_t torque_state_int;
+    int res_torque = packetHandler->read1ByteTxRx(portHandler, id, READ_TORQUE_ADDRESS, &torque_state_int);
+    
+    // Validar la lectura y convertir a bool 
+    if (res_torque != COMM_SUCCESS) {
+        throw std::runtime_error("Error: No se pudo obtener el estado de torque del motor " + std::to_string(id));
+    }
+    telemetry_motor.torque_state = static_cast<bool>(torque_state_int);
+
+}
+
 
 // ==========================================
 // CONTROL DE MOVIMIENTO
 // ==========================================
 
-
 void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
-    // Crear array para dividir variable en pasos más pequeños
-    uint8_t velocity_bytes[4];
-    velocity_bytes[0] = DXL_LOBYTE(DXL_LOWORD(actuation_motor.velocity));
-    velocity_bytes[1] = DXL_HIBYTE(DXL_LOWORD(actuation_motor.velocity));
-    velocity_bytes[2] = DXL_LOBYTE(DXL_HIWORD(actuation_motor.velocity));
-    velocity_bytes[3] = DXL_HIBYTE(DXL_HIWORD(actuation_motor.velocity));
+    // Limites en software para evitar que el motor se mueva fuera de su rango 
+    if (actuation_motor.velocity > 0 && (actuation_motor.position > MAX_POSITION || actuation_motor.position < MIN_POSITION)){
+        actuation_motor.velocity = 0;
+    }
 
     // Según si está usando BultWrite o no, se envía con el método BultWrite o con el método individual
     if (groupSyncWrite != nullptr) {
-        bool result = groupSyncWrite->addParam(id, velocity_bytes);
+        // Crear array para dividir variable en pasos más pequeños
+        uint8_t velocity_bytes[4];
+        velocity_bytes[0] = DXL_LOBYTE(DXL_LOWORD(actuation_motor.velocity));
+        velocity_bytes[1] = DXL_HIBYTE(DXL_LOWORD(actuation_motor.velocity));
+        velocity_bytes[2] = DXL_LOBYTE(DXL_HIWORD(actuation_motor.velocity));
+        velocity_bytes[3] = DXL_HIBYTE(DXL_HIWORD(actuation_motor.velocity));
         
+        // Meter array en el fichero y comprobar que se ha metido bien
+        bool result = groupSyncWrite->addParam(id, velocity_bytes);
         if (!result) {
             throw std::runtime_error("Error: No se pudo empaquetar la velocidad del motor " + std::to_string(id));
         }
@@ -195,17 +264,20 @@ void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
 }
 
 void DinamixelMotor::set_position(dynamixel::GroupSyncWrite* groupSyncWrite) {
-    // Crear array para dividir variable en pasos más pequeños
-    uint8_t position_bytes[4];
-    position_bytes[0] = DXL_LOBYTE(DXL_LOWORD(actuation_motor.position));
-    position_bytes[1] = DXL_HIBYTE(DXL_LOWORD(actuation_motor.position));
-    position_bytes[2] = DXL_LOBYTE(DXL_HIWORD(actuation_motor.position));
-    position_bytes[3] = DXL_HIBYTE(DXL_HIWORD(actuation_motor.position));
+    // Tener en cuenta los límites de posición
+    actuation_motor.position = std::max(std::min(actuation_motor.position, (float)MAX_POSITION), (float)MIN_POSITION);
 
     // Según si está usando BultWrite o no, se envía con el método BultWrite o con el método individual
     if (groupSyncWrite != nullptr) {
+        // Crear array para dividir variable en pasos más pequeños
+        uint8_t position_bytes[4];
+        position_bytes[0] = DXL_LOBYTE(DXL_LOWORD(actuation_motor.position));
+        position_bytes[1] = DXL_HIBYTE(DXL_LOWORD(actuation_motor.position));
+        position_bytes[2] = DXL_LOBYTE(DXL_HIWORD(actuation_motor.position));
+        position_bytes[3] = DXL_HIBYTE(DXL_HIWORD(actuation_motor.position));
+
+        // Meter array en el fichero y comprobar que se ha metido bien
         bool result = groupSyncWrite->addParam(id, position_bytes);
-        
         if (!result) {
             throw std::runtime_error("Error: No se pudo empaquetar la posición del motor " + std::to_string(id));
         }
@@ -231,7 +303,7 @@ void DinamixelMotor::set_position_limits() {
     if (dxl_comm_result != COMM_SUCCESS) { 
         throw std::runtime_error("Error: No se pudo establecer el límite de posición del motor " + std::to_string(this->id));
     }
-    }
+}
 
 void DinamixelMotor::set_velocity_limits() { 
     int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, VELOCITY_LIMIT, MAX_VELOCITY);
@@ -240,14 +312,14 @@ void DinamixelMotor::set_velocity_limits() {
     if (dxl_comm_result != COMM_SUCCESS) {
         throw std::runtime_error("Error: No se pudo establecer el límite de velocidad del motor " + std::to_string(this->id));
     }
-    }
+}
 
 void DinamixelMotor::get_id() { 
     /*
     TODO: 
     */
     return;
-    }
+}
 
 void DinamixelMotor::set_id(uint8_t new_id) {
     /*

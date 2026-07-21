@@ -7,8 +7,13 @@
 
 GlobalManipulator::GlobalManipulator(rr_can_interface_t* rozum_iface, dynamixel::PortHandler* port, dynamixel::PacketHandler* packet) {
     // Inicializamos las instancias de los conjuntos de motores con sus IDs por defecto
-    arm = new RozumArm(rozum_iface, 123, 124, 125); // IDs estándar de Rozum en tu código[cite: 3]
-    claw = new DynamixelClaw(port, packet, 1, 2, 3, 5, 12); // IDs estándar de Dynamixel en tu código[cite: 5]
+    arm = new RozumArm(rozum_iface, 123, 124, 125); // IDs estándar de Rozum en tu código
+    claw = new DynamixelClaw(port, packet, 1, 2, 3, 5, 12); // IDs estándar de Dynamixel en tu código
+
+    // Se define un timer de 50ms (20Hz) y publicador
+    telemetry_pub_ = this->create_publisher<manipulator_msgs::msg::ManipulatorMotorStage>("manipulator_telemetry", 10);
+    telemetry_timer_ = this->create_wall_timer(
+        50ms, std::bind(&GlobalManipulator::publish_telemetry_callback, this));
 }
 
 GlobalManipulator::~GlobalManipulator() {
@@ -36,7 +41,7 @@ void GlobalManipulator::init() {
 }
 
 void GlobalManipulator::deinit() {
-    // Avisar al hilo para que se apague[cite: 2]
+    // Avisar al hilo para que se apague
     {
         std::lock_guard<std::mutex> lock(mtx_sincronizacion);
         comando_actual_ = tarea_dynamixel::POWER_OFF;
@@ -227,4 +232,73 @@ void GlobalManipulator::set_positions(const std::array<float, 3>& arm_pos, const
         std::unique_lock<std::mutex> lock(mtx_sincronizacion);
         cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
     }
+}
+
+
+// ==========================================
+// FUNCIONES ROS2
+// ==========================================
+
+void GlobalManipulator::publish_telemetry_callback() {
+    // 1. Leer los datos más recientes de los motores mediante las funciones de sincronización
+    read_positions();
+    read_velocities();
+    read_currents();
+    read_temperatures();
+
+    // 2. Crear el mensaje de ROS2
+    auto msg = manipulator_msgs::msg::ManipulatorMotorStage();
+
+    // 3. Extraer telemetría de Rozum (Brazo)
+    // Motor 1 (ID 123)
+    msg.rozum_motors[0].position = arm->motor1.telemetry_motor.position;
+    msg.rozum_motors[0].velocity = arm->motor1.telemetry_motor.velocity;
+    msg.rozum_motors[0].current = arm->motor1.telemetry_motor.current;
+    msg.rozum_motors[0].temperature = arm->motor1.telemetry_motor.temperature;
+    
+    // Motor 2 (ID 124)
+    msg.rozum_motors[1].position = arm->motor2.telemetry_motor.position;
+    msg.rozum_motors[1].velocity = arm->motor2.telemetry_motor.velocity;
+    msg.rozum_motors[1].current = arm->motor2.telemetry_motor.current;
+    msg.rozum_motors[1].temperature = arm->motor2.telemetry_motor.temperature;
+
+    // Motor 3 (ID 125)
+    msg.rozum_motors[2].position = arm->motor3.telemetry_motor.position;
+    msg.rozum_motors[2].velocity = arm->motor3.telemetry_motor.velocity;
+    msg.rozum_motors[2].current = arm->motor3.telemetry_motor.current;
+    msg.rozum_motors[2].temperature = arm->motor3.telemetry_motor.temperature;
+
+    // 4. Extraer telemetría de Dynamixel (Garra)
+    // Motor 1 (Dynamixel ID 1)
+    msg.dinamixel_motors[0].position = claw->motor1.telemetry_motor.position;
+    msg.dinamixel_motors[0].velocity = claw->motor1.telemetry_motor.velocity;
+    msg.dinamixel_motors[0].current = claw->motor1.telemetry_motor.current;
+    msg.dinamixel_motors[0].temperature = claw->motor1.telemetry_motor.temperature;
+
+    // Motor 2 (Dynamixel ID 2)
+    msg.dinamixel_motors[1].position = claw->motor2.telemetry_motor.position;
+    msg.dinamixel_motors[1].velocity = claw->motor2.telemetry_motor.velocity;
+    msg.dinamixel_motors[1].current = claw->motor2.telemetry_motor.current;
+    msg.dinamixel_motors[1].temperature = claw->motor2.telemetry_motor.temperature;
+
+    // Motor 3 (Dynamixel ID 3)
+    msg.dinamixel_motors[2].position = claw->motor3.telemetry_motor.position;
+    msg.dinamixel_motors[2].velocity = claw->motor3.telemetry_motor.velocity;
+    msg.dinamixel_motors[2].current = claw->motor3.telemetry_motor.current;
+    msg.dinamixel_motors[2].temperature = claw->motor3.telemetry_motor.temperature;
+
+    // Motor 5 (Dynamixel ID 5)
+    msg.dinamixel_motors[3].position = claw->motor5.telemetry_motor.position;
+    msg.dinamixel_motors[3].velocity = claw->motor5.telemetry_motor.velocity;
+    msg.dinamixel_motors[3].current = claw->motor5.telemetry_motor.current;
+    msg.dinamixel_motors[3].temperature = claw->motor5.telemetry_motor.temperature;
+
+    // Motor 12 (Dynamixel ID 12)
+    msg.dinamixel_motors[4].position = claw->motor12.telemetry_motor.position;
+    msg.dinamixel_motors[4].velocity = claw->motor12.telemetry_motor.velocity;
+    msg.dinamixel_motors[4].current = claw->motor12.telemetry_motor.current;
+    msg.dinamixel_motors[4].temperature = claw->motor12.telemetry_motor.temperature;
+
+    // 5. Publicar el estado en el tópico
+    telemetry_pub_->publish(msg);
 }

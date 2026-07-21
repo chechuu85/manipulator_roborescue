@@ -68,7 +68,7 @@ include_directories(
   include
 )
 
-add_executable(API_robot src/motor_dinamixel.cpp src/API_robot.cpp src/motor_rozum.cpp)
+add_executable(API_robot src/motor_dinamixel.cpp src/API_robot.cpp src/motor_rozum.cpp src/robot_arm.cpp src/robot_claw.cpp)
 
 target_link_libraries(API_robot rozum_api)
 

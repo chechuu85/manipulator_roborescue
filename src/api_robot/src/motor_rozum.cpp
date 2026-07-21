@@ -85,7 +85,7 @@ void RozumMotor::read_all_parameters(){
     rr_read_cached_parameter(motor, APP_PARAM_VELOCITY, &telemetry_motor.velocity);
     rr_read_cached_parameter(motor, APP_PARAM_CURRENT_INPUT, &temp_current);
     rr_read_cached_parameter(motor, APP_PARAM_TEMPERATURE_ACTUATOR, &temp_temperature);
-
+    // Puede ser que no entregue los datos correctamente
     telemetry_motor.current = static_cast<int16_t>(temp_current);
     telemetry_motor.temperature = static_cast<int8_t>(temp_temperature);
 }
@@ -126,7 +126,7 @@ void RozumMotor::set_velocity(){
         actuation_motor.velocity = 0; 
     }
 
-    // Enviar el comando de velocidad 
+    // Enviar el comando de velocidad y comprobar si falla 
     rr_ret_status_t res_motor = rr_set_velocity(motor, actuation_motor.velocity);
     if (res_motor != RET_OK){
         throw std::runtime_error("Error al establecer la velocidad del motor Rozum con ID: " + std::to_string(id));
@@ -140,6 +140,7 @@ void RozumMotor::set_position(){
     // Tener en cuenta los límites de posición
     actuation_motor.position = std::max(std::min(actuation_motor.position, (float)MAX_POSITION), (float)MIN_POSITION);
     
+    // Enviar el comando de posición y comprobar si falla 
     rr_ret_status_t res_motor = rr_set_position(motor, actuation_motor.position);
     if (res_motor != RET_OK){
         throw std::runtime_error("Error al establecer la posición del motor Rozum con ID: " + std::to_string(id));

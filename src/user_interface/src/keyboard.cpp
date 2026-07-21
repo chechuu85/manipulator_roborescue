@@ -1,31 +1,52 @@
 #include "user_interface/keyboard.hpp"
 
+
+// ==========================================
+// CONSTRUCTOR Y DESTRUCTOR
+// ==========================================
 KeyboardNode::KeyboardNode() : Node("keyboard_node") {
     // Inicializar subsistema de eventos de SDL
     if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) != 0) {
         RCLCPP_ERROR(this->get_logger(), "Error SDL: %s", SDL_GetError());
     }
 
-    // Crear una ventana invisible o pequeña para tener foco
-    SDL_Window* window = SDL_CreateWindow("KeyboardCapture", 
+    // Crear una ventana para capturar eventos de teclado y comprobar que que se crea
+    window_ = SDL_CreateWindow("KeyboardCapture", 
                                         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
                                         100, 100, SDL_WINDOW_SHOWN);
-
-    if (window == nullptr) {
+    if (window_ == nullptr) {
         RCLCPP_ERROR(this->get_logger(), "No se pudo crear la ventana SDL: %s", SDL_GetError());
     }
 
+    // Configurar el publicador y el temporizador 
     publisher_ = this->create_publisher<manipulator_msgs::msg::ManipulatorMotorStage>("keyboard_input", 10);
-    timer_ = this->create_wall_timer(std::chrono::milliseconds(20), 
+    timer_ = this->create_wall_timer(std::chrono::milliseconds(timer_period_ms), 
              std::bind(&KeyboardNode::timer_callback, this));
     
     flag_q = flag_a = flag_t = flag_g = false;
+
+    RCLCPP_INFO(this->get_logger(), "Nodo de teclado inicializado. ");
+
 }
 
-KeyboardNode::~KeyboardNode() { SDL_Quit(); }
+KeyboardNode::~KeyboardNode() { 
 
+    // Liberamos la memoria de la ventana de forma segura y apagamos la librería SDL
+    if (window_ != nullptr) {
+        SDL_DestroyWindow(window_); 
+    }
+    SDL_Quit();
+
+    RCLCPP_INFO(this->get_logger(), "Nodo de teclado finalizado. ");
+}
+
+
+// ==========================================
+// INTERRUPCIÓN
+// ==========================================
 void KeyboardNode::timer_callback() {
-    SDL_PumpEvents(); // Obligatorio para actualizar el estado del teclado
+    // Procesa todos los eventos del hardware del PC (teclado, ratón, etc.) y lo guarda en state
+    SDL_PumpEvents(); 
     const Uint8 *state = SDL_GetKeyboardState(NULL);
 
     auto msg = manipulator_msgs::msg::ManipulatorMotorStage();
@@ -57,28 +78,24 @@ void KeyboardNode::timer_callback() {
     msg.dinamixel_motors[3].velocity = state[SDL_SCANCODE_O] ? ref_vel_dinamixel : (state[SDL_SCANCODE_L] ? -ref_vel_dinamixel : 0);
     msg.dinamixel_motors[4].velocity = state[SDL_SCANCODE_P] ? ref_vel_dinamixel : (state[SDL_SCANCODE_SEMICOLON] ? -ref_vel_dinamixel : 0);
                                                                             // Se usa ; en lugar de la Ñ por compatibilidad de teclado
+    
     //printf("Rozum Vel: %.2f, Dinamixel Vel: %.2f\n", ref_vel_rozum, ref_vel_dinamixel);
+    // Publica el mensaje 
     publisher_->publish(msg);
 }
 
 
-// ==========================================
-// Main
-// ==========================================
 
-
+// ==========================================
+// MAIN
+// ==========================================
 int main(int argc, char * argv[]) {
+    // Inicializar ROS 2 y crear el nodo
     rclcpp::init(argc, argv);
     auto node = std::make_shared<KeyboardNode>();
 
-    rclcpp::Rate loop_rate(50); 
-
-    while (rclcpp::ok()) 
-    {
-
-        rclcpp::spin_some(node); 
-        loop_rate.sleep(); 
-    }
+    // Ejecutar el nodo hasta que se reciba una interrupción
+    rclcpp::spin(node);
 
     rclcpp::shutdown();
 

@@ -49,16 +49,16 @@ public:
 
     // --- Inicialización y Estado ---
     void set_torque_state(bool state);       // Habilitar Torque
-    void set_mode(uint8_t mode);                  // Ejemplo: Velocity o Position mode
+    void set_mode(char mode);                  // Ejemplo: Velocity o Position mode
 
-    // --- Lectura de Variables (Telemetría) ---
-    void read_torque_state();
-    void update_telemetry(); // Lectura síncrona o BulkRead
+    // --- Lectura de Variables (Telemetría) --- // Si se ve que va todo más ineficiente, cambiar a bulk
     void add_ID_to_sync_read(dynamixel::GroupSyncRead* groupSyncRead);
+    void read_all_parameters(dynamixel::GroupSyncRead* groupSyncRead);
     void read_position(dynamixel::GroupSyncRead* groupSyncRead);
     void read_velocity(dynamixel::GroupSyncRead* groupSyncRead);
     void read_current(dynamixel::GroupSyncRead* groupSyncRead);
     void read_temperature(dynamixel::GroupSyncRead* groupSyncRead);
+    void read_torque_state();
 
     // --- Control de Movimiento ---
     // void control_PID();

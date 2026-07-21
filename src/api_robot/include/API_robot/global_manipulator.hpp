@@ -1,6 +1,8 @@
 #ifndef GLOBAL_MANIPULATOR_HPP
 #define GLOBAL_MANIPULATOR_HPP
 
+#include "rclcpp/rclcpp.hpp" 
+#include "manipulator_msgs/msg/manipulator_motor_stage.hpp"
 #include "API_robot/robot_arm.hpp"
 #include "API_robot/robot_claw.hpp"
 #include <thread>
@@ -8,8 +10,9 @@
 #include <condition_variable>
 #include <array>
 #include <atomic>
+#include <chrono>
 
-// Enum basado en la estructura de tu documento[cite: 5]
+// Enum basado en la estructura de tu documento
 enum class tarea_dynamixel {
     SLEEPING,
     SEND_VELOCITY,
@@ -21,13 +24,13 @@ enum class tarea_dynamixel {
     POWER_OFF
 };
 
-class GlobalManipulator {
+class GlobalManipulator : public rclcpp::Node {
 private:
     // --- Componentes del Manipulador ---
     RozumArm* arm;
     DynamixelClaw* claw;
 
-    // --- Sincronización y Hilos[cite: 5] ---
+    // --- Sincronización y Hilos ---
     std::thread hilo_dynamixel;
     std::mutex mtx_sincronizacion;
     std::condition_variable cv_iniciar_tarea_;
@@ -36,8 +39,14 @@ private:
     tarea_dynamixel comando_actual_ = tarea_dynamixel::SLEEPING;
     bool tarea_completada_ = false;
 
-    // Bucle infinito del hilo secundario[cite: 4]
+    rclcpp::Publisher<manipulator_msgs::msg::ManipulatorMotorStage>::SharedPtr telemetry_pub_;
+    rclcpp::TimerBase::SharedPtr telemetry_timer_;
+
+    // Bucle infinito del hilo secundario
     void gestor_tareas();
+
+    // Callback para leer y publicar el estado de los motores
+    void publish_telemetry_callback();
 
 public:
     // --- Constructor y Destructor ---

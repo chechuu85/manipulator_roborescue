@@ -10,12 +10,18 @@ public:
     KeyboardNode();
     ~KeyboardNode();
 
+    // Temporización para el timer_
+    uint8_t timer_period_ms = 20; // (ms)
+
 private:
     void timer_callback();
-    void read_keyboard_inputs();
 
+    // Publicador y temporizador 
     rclcpp::Publisher<manipulator_msgs::msg::ManipulatorMotorStage>::SharedPtr publisher_;
     rclcpp::TimerBase::SharedPtr timer_;
+
+    // Ventana SDL para capturar teclado 
+    SDL_Window* window_;
     
     // Variables de control
     float ref_vel_rozum = 0.0f;

@@ -6,7 +6,7 @@
 
 // Inclusiones de las APIs base (Ajusta las rutas a tu proyecto)
 #include "./Rozum-Servo-Drives-API/c/include/api.h"
-#include <dynamixel_sdk/dynamixel_sdk.h>[cite: 6]
+#include <dynamixel_sdk/dynamixel_sdk.h>
 
 // Inclusión de la nueva clase global
 #include "API_robot/global_manipulator.hpp"

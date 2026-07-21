@@ -28,10 +28,11 @@ public:
 
     // --- Inicialización y Estado ---
     void set_torque_all(bool state);       // Activa/desactiva el torque de los 5 motores
-    void set_mode_all(uint8_t mode);       // Cambia el modo de operación (ej. VELOCITY_MODE)
+    void set_mode_all(char mode);       // Cambia el modo de operación (ej. VELOCITY_MODE)
 
     // --- Lectura de Variables Síncrona (Telemetría) ---
     // Estas funciones leen los datos de los 5 motores en un solo paquete para reducir latencia
+    void read_all_parameters();
     void read_positions(); 
     void read_velocities();
     void read_currents();
