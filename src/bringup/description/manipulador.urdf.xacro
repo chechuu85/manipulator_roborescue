@@ -1,0 +1,440 @@
+<?xml version="1.0"?>
+<robot name="manipulador">
+
+  <!-- 1. BASE -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="5.0"/>
+      <inertia ixx="0.1" ixy="0.0" ixz="0.0"
+               iyy="0.1" iyz="0.0"
+               izz="0.1"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.4 0.4 0.2"/>
+      </geometry>
+      <material name="grey">
+        <color rgba="0.6 0.6 0.6 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.4 0.4 0.2"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 2. LINK1 -->
+  <link name="link1">
+    <inertial>
+      <origin xyz="0 0 0.075" rpy="0 0 0"/>
+      <mass value="2.0"/>
+      <inertia ixx="0.000534" ixy="0.0" ixz="0.0"
+               iyy="0.000534" iyz="0.0"
+               izz="0.000992"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.0275" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.0315" length="0.055"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.0 0.0 0.8 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0275" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.0315" length="0.15"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 3. LINK2 -->
+  <link name="link2">
+    <inertial>
+      <origin xyz="-0.055 0.0 0.21" rpy="0 0 0"/>
+      <mass value="1"/>
+      <inertia ixx="0.000903" ixy="0.0" ixz="0.0"
+               iyy="0.000903" iyz="0.0"
+               izz="0.001513"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.055 0.0 0.22" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.055" length="0.44"/>
+      </geometry>
+      <material name="yellow">
+        <color rgba="0.8 0.8 0.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.055 0.0 0.22" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.055" length="0.44"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 4. LINK3 -->
+  <link name="link3">
+    <inertial>
+      <origin xyz="0 0.0 0.235" rpy="0 0 0"/>
+      <mass value="3"/>
+      <inertia ixx="0.002753" ixy="0.0" ixz="0.0"
+               iyy="0.002753" iyz="0.0"
+               izz="0.004538"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0.0 0.235" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.055" length="0.47"/>
+      </geometry>
+      <material name="green">
+        <color rgba="0.0 0.8 0.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0.0 0.235" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.055" length="0.47"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 5. LINK4 (inicio muñeca) -->
+  <link name="link4">
+    <inertial>
+      <origin xyz="0 0 0.035" rpy="0 0 0"/>
+      <mass value="0.7"/>
+      <inertia ixx="0.000535" ixy="0.0" ixz="0.0"
+               iyy="0.000535" iyz="0.0"
+               izz="0.001059"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.035" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.055" length="0.07"/>
+      </geometry>
+      <material name="red">
+        <color rgba="0.8 0.0 0.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.035" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.055" length="0.07"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 6. LINK5 -->
+  <link name="link5">
+    <inertial>
+      <origin xyz="0 0.0 0.06" rpy="0 0 0"/>
+      <mass value="1"/>
+      <inertia ixx="0.004233" ixy="0.0" ixz="0.0"
+               iyy="0.004233" iyz="0.0"
+               izz="0.0018"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0.0 0.06" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.06" length="0.12"/>
+      </geometry>
+      <material name="yellow">
+        <color rgba="0.8 0.8 0.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0.0 0.06" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.06" length="0.12"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 7. LINK6 (flange / herramienta) -->
+  <link name="link6">
+    <inertial>
+      <origin xyz="0 0 0.1175" rpy="0 0 0"/>
+      <mass value="1.5"/>
+      <inertia ixx="0.0073" ixy="0.0" ixz="0.0"
+               iyy="0.006428" iyz="0.0"
+               izz="0.001628"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.1175" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.055 0.1 0.235"/>
+      </geometry>
+      <material name="white">
+        <color rgba="0.9 0.9 0.9 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.1175" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.055 0.1 0.235"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 8. LINK7 -->
+  <link name="link7">
+    <inertial>
+      <origin xyz="0 0.0 0.0" rpy="0 0 0"/>
+      <mass value="1"/>
+      <inertia ixx="0.004233" ixy="0.0" ixz="0.0"
+               iyy="0.004233" iyz="0.0"
+               izz="0.0018"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.01" length="0.01"/>
+      </geometry>
+      <material name="yellow">
+        <color rgba="0.8 0.8 0.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.01" length="0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+
+
+  <!-- 9. LINK8 (dedo izquierdo) -->
+  <link name="link8">
+    <inertial>
+      <origin xyz="0 0.03 0.05" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.0073" ixy="0.0" ixz="0.0"
+               iyy="0.006428" iyz="0.0"
+               izz="0.001628"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0.03 0.05" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.02 0.01 0.01"/>
+      </geometry>
+      <material name="white">
+        <color rgba="0.9 0.9 0.9 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0.03 0.05" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.02 0.01 0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 10. LINK9 (dedo dcha) -->
+  <link name="link9">
+    <inertial>
+      <origin xyz="0 -0.03 0.05" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.0073" ixy="0.0" ixz="0.0"
+               iyy="0.006428" iyz="0.0"
+               izz="0.001628"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 -0.03 0.05" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.02 0.01 0.01"/>
+      </geometry>
+      <material name="white">
+        <color rgba="0.9 0.9 0.9 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -0.03 0.05" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.02 0.01 0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+
+
+
+  <!-- JOINT1: base_link -> link1 -->
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <!-- El frame del joint está en la parte superior de la base -->
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    <!-- Eje de rotación: z -->
+    <axis xyz="0 0 -1"/>
+    <limit lower="-6.28" upper="6.28" effort="50" velocity="1.5"/>
+  </joint>
+
+  <!-- JOINT2: link1 -> link2 -->
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <!-- Colocamos el joint al final de link1, en z=0.2 -->
+    <origin xyz="0 0 0.055" rpy="0 0 0"/>
+    <!-- Eje de rotación: y -->
+    <axis xyz="1 0 0"/>
+    <limit lower="-6.28" upper="6.28" effort="40" velocity="1.5"/>
+  </joint>
+
+  <!-- JOINT3: link2 -> link3 -->
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <!-- Al final de link2, que mide 0.5 en z -->
+    <origin xyz="0 0 0.44" rpy="0 0 0"/>
+    <!-- Eje de rotación: y -->
+    <axis xyz="-1 0 0"/>
+    <limit lower="-6.28" upper="6.28" effort="30" velocity="1.5"/>
+  </joint>
+
+  <!-- JOINT4: link3 -> link4 (primer eje de muñeca) -->
+  <joint name="joint4" type="revolute">
+    <parent link="link3"/>
+    <child link="link4"/>
+    <!-- Centro de muñeca: al final de link3 (0.5 en z) -->
+    <origin xyz="0 0 0.47" rpy="0 0 0"/>
+    <!-- Eje de rotación: z -->
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="2.0"/>
+  </joint>
+
+  <!-- JOINT5: link4 -> link5 (segundo eje de muñeca) -->
+  <joint name="joint5" type="revolute">
+    <parent link="link4"/>
+    <child link="link5"/>
+    <!-- Mismo punto físico (centro de muñeca) -->
+    <origin xyz="0 0 0.07" rpy="0 0 0"/>
+    <!-- Eje de rotación: y -->
+    <axis xyz="1 0 0"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="2.0"/>    
+  </joint>
+
+  <!-- JOINT6: link5 -> link6 (tercer eje de muñeca) -->
+  <joint name="joint6" type="revolute">
+    <parent link="link5"/>
+    <child link="link6"/>
+    <!-- Mismo punto físico (centro de muñeca) -->
+    <origin xyz="0 0 0.12" rpy="0 0 0"/>
+   <!-- Eje de rotación: z -->
+    <axis xyz="0 0 -1"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="2.0"/>   
+  </joint>
+
+  <!-- JOINT7: link6 -> link7 (dedo izda) -->
+  <joint name="joint55" type="fixed">
+    <parent link="link6"/>
+    <child link="link7"/>
+    <origin xyz="0 0.0 0.235" rpy="0 0 0"/>
+  </joint>
+
+  <!-- JOINT7: link6 -> link8 (dedo izda) -->
+  <joint name="joint7" type="revolute">
+    <parent link="link6"/>
+    <child link="link8"/>
+    <!-- Mismo punto físico (centro de muñeca) -->
+    <origin xyz="0 0.03 0.11" rpy="0 0 0"/>
+   <!-- Eje de rotación: y -->
+    <axis xyz="0 1 0"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="8.0"/>   
+  </joint>
+
+  <!-- JOINT8: link6 -> link9 (dedo dcha) -->
+  <joint name="joint8" type="revolute">
+    <parent link="link6"/>
+    <child link="link9"/>
+    <!-- Mismo punto físico (centro de muñeca) -->
+    <origin xyz="0 -0.03 0.11" rpy="0 0 0"/>
+   <!-- Eje de rotación: y -->
+    <axis xyz="0 -1 0"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="8.0"/>   
+  </joint>
+  
+  
+  
+  
+   <!-- ros2_control -->
+  
+  <ros2_control name="MiSystem" type="system">
+  <hardware>
+    <plugin>hardware/HwInterface</plugin>
+    <!-- {Name_Space}/{Class_Name} -->
+  </hardware>
+
+  <!-- Joint 1 -->
+  <joint name="joint1">
+    <command_interface name="velocity"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint>
+
+  <!-- Joint 2 -->
+  <joint name="joint2">
+    <command_interface name="velocity"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint>
+
+  <!-- Joint 3 -->
+  <joint name="joint3">
+    <command_interface name="velocity"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint>
+
+  <!-- Joint 4 -->
+  <joint name="joint4">
+    <command_interface name="velocity"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint> 
+
+  <!-- Joint 5 -->
+  <joint name="joint5">
+    <command_interface name="velocity"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint>
+
+  <!-- Joint 6 -->
+  <joint name="joint6">
+    <command_interface name="velocity"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint>
+
+  <!-- Joint 7 -->
+  <joint name="joint7">
+    <command_interface name="velocity"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint>
+  
+  <!-- Joint 8 -->
+  <joint name="joint8">
+    <command_interface name="velocity"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint>
+    
+</ros2_control>
+
+  
+
+
+
+  
+
+</robot>
+

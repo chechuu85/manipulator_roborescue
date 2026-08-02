@@ -22,7 +22,7 @@ find_package(manipulator_msgs REQUIRED)
 # CONFIGURAR API DE ROZUM
 # ==========================================
 # Ruta de la API de Rozum y su biblioteca compilada
-set(ROZUM_API_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/Rozum-Servo-Drives-API/c)
+set(ROZUM_API_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/include/API_robot/Rozum-Servo-Drives-API/c)
 set(ROZUM_API_LIB ${ROZUM_API_ROOT}/build/libservo_api.a)
 set(ROZUM_API_SO ${ROZUM_API_ROOT}/build/libservo_api.so)
 

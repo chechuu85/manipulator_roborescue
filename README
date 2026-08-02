@@ -1,5 +1,9 @@
 Instalar: Foxglobe para usar la interfaces:
-sudo snap install foxglove-studio
-
+sudo snap install foxglove: studio  instalar la comunicación de los nodos con foxglove
+luego instalar la aplicación de foxglove
 
 ros2 launch foxglove_bridge foxglove_bridge_launch.xml
+
+***Importante***
+En archivo adapterToSimulation.cpp hay que cambiar el nombre del topic donde está subscrito. Se debe poner el nombre del topic que 
+del nodo que cambia posiciones de cartesiana a articular.

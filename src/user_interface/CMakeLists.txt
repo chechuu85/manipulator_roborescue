@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(manipulator_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs)
 find_package(SDL2 REQUIRED)
 # uncomment the following section in order to fill in
@@ -32,14 +33,17 @@ include_directories(
 )
 
 add_executable(keyboard src/keyboard.cpp)
+add_executable(adapterToSimulation src/adapterToSimulation.cpp)
 
 
 target_link_libraries(keyboard SDL2::SDL2)
 
 install(TARGETS
   keyboard
+  adapterToSimulation
   DESTINATION lib/${PROJECT_NAME})
 
-ament_target_dependencies(keyboard rclcpp manipulator_msgs )
+ament_target_dependencies(keyboard rclcpp manipulator_msgs geometry_msgs)
+ament_target_dependencies(adapterToSimulation rclcpp manipulator_msgs sensor_msgs)
 
 ament_package()

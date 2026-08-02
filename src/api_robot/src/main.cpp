@@ -73,7 +73,7 @@ int main(int argc, char * argv[]) {
     std::array<float, 5> claw_target_vels = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
     // Bucle principal (ej. tu modo manual o bucle de renderizado)
-    while (Running) {
+    while (1) { //Running = true; lo que pasa es que no está declarada. Revisar código 
         
         // A. Aquí puedes gestionar eventos locales o dejar que el nodo ROS2 
         // reciba los comandos externos y los sincronice con el brazo.
