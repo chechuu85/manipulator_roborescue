@@ -15,6 +15,10 @@ private:
 
     rclcpp::Subscription<manipulator_msgs::msg::ManipulatorMotorStage>::SharedPtr sub_articular_;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_states_;
+
+    // Variables para calcular la posición
+    std::vector<double> posiciones_actuales_ = std::vector<double>(8, 0.0);
+    rclcpp::Time ultimo_tiempo_;
 };
 
 

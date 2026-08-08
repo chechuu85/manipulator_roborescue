@@ -12,7 +12,7 @@ public:
     ~KeyboardNode();
 
     // Temporización para el timer_
-    uint8_t timer_period_ms = 20; // (ms)
+    int timer_period_ms = 0; // (ms)
 
 private:
     void timer_callback();

@@ -10,6 +10,10 @@ KeyboardNode::KeyboardNode() : Node("keyboard_node") {
         RCLCPP_ERROR(this->get_logger(), "Error SDL: %s", SDL_GetError());
     }
 
+    // Obtener el valor del parámetro por el launch
+    this->declare_parameter<int>("timer_period_ms", 20);
+    this->get_parameter("timer_period_ms", timer_period_ms);
+
     // Crear una ventana para capturar eventos de teclado y comprobar que que se crea
     window_ = SDL_CreateWindow("KeyboardCapture", 
                                         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
@@ -48,6 +52,7 @@ KeyboardNode::~KeyboardNode() {
 void KeyboardNode::timer_callback() {
     // Procesa todos los eventos del hardware del PC (teclado, ratón, etc.) y lo guarda en state
     SDL_PumpEvents(); 
+    
     const Uint8 *state = SDL_GetKeyboardState(NULL);
 
     // Lógica para alternar el modo con la tecla 'M'
@@ -89,7 +94,6 @@ void KeyboardNode::articular_mode(const Uint8 *state){
         if(!flag_t) { ref_vel_dinamixel += 2.0f; flag_t = true; } 
     } else flag_t = false;
     if (state[SDL_SCANCODE_G]) { 
-        printf("G pressed\n");
         if(!flag_g) { ref_vel_dinamixel -= 2.0f; flag_g = true; } 
     } else flag_g = false;
 
