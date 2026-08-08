@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<robot name="manipulador" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- INCLUIR TODOS LOS ARCHIVOS XACRO DE LOS LINKS -->
+  <xacro:include filename="../meshes/links/base_link.xacro"/>
+  <xacro:include filename="../meshes/links/link1.xacro"/>
+  <xacro:include filename="../meshes/links/link2.xacro"/>
+  <xacro:include filename="../meshes/links/link3.xacro"/>
+  <xacro:include filename="../meshes/links/link4.xacro"/>
+  <xacro:include filename="../meshes/links/link5.xacro"/>
+  <xacro:include filename="../meshes/links/link6.xacro"/>
+  <xacro:include filename="../meshes/links/link7.xacro"/>
+  <xacro:include filename="../meshes/links/link8.xacro"/>
+  <xacro:include filename="../meshes/links/link9.xacro"/>
+
+
+  <!-- ========================================== -->
+  <!-- INSTANCIAR LOS LINKS                       -->
+  <!-- ========================================== -->
+  <xacro:base_link/>
+  <xacro:link1/>
+  <xacro:link2/>
+  <xacro:link3/>
+  <xacro:link4/>
+  <xacro:link5/>
+  <xacro:link6/>
+  <xacro:link7/>
+  <xacro:link8/>
+  <xacro:link9/>
+
+  <!-- ========================================== -->
+  <!-- JOINTS (CINEMÁTICA)                        -->
+  <!-- ========================================== -->
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/><child link="link1"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/><axis xyz="0 0 -1"/>
+    <limit lower="-6.28" upper="6.28" effort="50" velocity="1.5"/>
+  </joint>
+
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/><child link="link2"/>
+    <origin xyz="0 0 0.055" rpy="0 0 0"/><axis xyz="1 0 0"/>
+    <limit lower="-6.28" upper="6.28" effort="40" velocity="1.5"/>
+  </joint>
+
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/><child link="link3"/>
+    <origin xyz="0 0 0.44" rpy="0 0 0"/><axis xyz="-1 0 0"/>
+    <limit lower="-6.28" upper="6.28" effort="30" velocity="1.5"/>
+  </joint>
+
+  <joint name="joint4" type="revolute">
+    <parent link="link3"/><child link="link4"/>
+    <origin xyz="0 0 0.47" rpy="0 0 0"/><axis xyz="0 0 1"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="2.0"/>
+  </joint>
+
+  <joint name="joint5" type="revolute">
+    <parent link="link4"/><child link="link5"/>
+    <origin xyz="0 0 0.07" rpy="0 0 0"/><axis xyz="1 0 0"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="2.0"/>    
+  </joint>
+
+  <joint name="joint6" type="revolute">
+    <parent link="link5"/><child link="link6"/>
+    <origin xyz="0 0 0.12" rpy="0 0 0"/><axis xyz="0 0 -1"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="2.0"/>   
+  </joint>
+
+  <joint name="TCP" type="fixed">
+    <parent link="link6"/><child link="link7"/>
+    <origin xyz="0 0.0 0.235" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="joint7" type="revolute">
+    <parent link="link6"/><child link="link8"/>
+    <origin xyz="0 0.03 0.11" rpy="0 0 0"/><axis xyz="0 1 0"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="8.0"/>   
+  </joint>
+
+  <joint name="joint8" type="revolute">
+    <parent link="link6"/><child link="link9"/>
+    <origin xyz="0 -0.03 0.11" rpy="0 0 0"/><axis xyz="0 -1 0"/>
+    <limit lower="-6.28" upper="6.28" effort="20" velocity="8.0"/>   
+  </joint>
+
+  <!-- ========================================== -->
+  <!-- ROS2 CONTROL INTERFACE                     -->
+  <!-- ========================================== -->
+  <!--ros2_control name="MiSystem" type="system"-->
+    <!--de momento no se usa aunque al conectarlo con el manipulador se debería usar">
+    <!hardware>
+      <!plugin>hardware/HwInterface</plugin>
+    <!/hardware>
+
+    <xacro:macro name="add_ros2_control_joint" params="joint_name">
+      <joint name="${joint_name}">
+        <command_interface name="velocity"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+    </xacro:macro>
+
+    <xacro:add_ros2_control_joint joint_name="joint1"/>
+    <xacro:add_ros2_control_joint joint_name="joint2"/>
+  
+  </ros2_control-->
+
+</robot>

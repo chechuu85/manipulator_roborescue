@@ -7,3 +7,14 @@ ros2 launch foxglove_bridge foxglove_bridge_launch.xml
 ***Importante***
 En archivo adapterToSimulation.cpp hay que cambiar el nombre del topic donde está subscrito. Se debe poner el nombre del topic que 
 del nodo que cambia posiciones de cartesiana a articular.
+
+
+*********MUY IMPORTANTE****************
+SI USAS WSL, INSTALAR FOXGLOVE EN WSL, SI SE INSTALA EN WINDOWS PASA ESTO:
+ El retraso visual en la simulación 3D ocurre por un desfase temporal (Clock Drift) entre Windows y la máquina virtual de Linux (WSL2). Cuando tu nodo AdapterToSimulationNode asigna la marca de tiempo (stamp) a los mensajes articulares consultando el reloj del sistema, arrastra los segundos de desincronización que sufre WSL2 de forma natural. Como Foxglove se ejecuta en el entorno de Windows leyendo la hora real, percibe que los datos del puente de ROS 2 llegan "desde el futuro", por lo que el motor de renderizado los retiene en un búfer temporal esperando el momento cronológico para dibujarlos, provocando ese intenso delay en el modelo.  
+CPP
+
+La solución definitiva e industrial es instalar Foxglove de forma nativa directamente dentro de WSL2. Al descargar el paquete oficial .deb para Linux y ejecutarlo desde tu terminal de Ubuntu, tanto el visor gráfico como tus nodos de C++ compartirán el mismo núcleo y exactamente el mismo reloj interno del sistema operativo. Esto garantiza una sincronización perfecta al milisegundo, permitiendo que la simulación 3D reaccione al instante a los comandos de tus motores físicos sin arrastrar ninguna latencia visual.
+
+
+Opción de usar la librería MOVEIT2 para mejor rendimiento, de momento probamos que todo el código que se tiene funciona correctamente

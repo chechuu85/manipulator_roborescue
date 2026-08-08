@@ -1,0 +1,38 @@
+<!-- Mero archivo informativo por si luego se usan archivos .glb y .stl. No se usa -->
+<!-- En lugar de definir un .xacro simple se pueden usar formas más complejas con archivos .glb y .stl -->
+<!-- esta es una plantilla para formar cada link con esos archivos que estarían en las carpetas collition y visual -->
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="crear_link_estandar" params="nombre_link mesh_visual mesh_colision *bloque_inercial *origen_visual *origen_colision">
+    <link name="${nombre_link}">
+      
+      <!-- 1. INERCIA -->
+      <inertial>
+        <xacro:insert_block name="origen_inercia"/>
+        <mass value="${masa}"/>
+        <inertia ixx="${ixx}" ixy="0.0" ixz="0.0"
+                 iyy="${iyy}" iyz="0.0"
+                 izz="${izz}"/>
+      </inertial>
+
+      <!-- VISUAL (.glb) -->
+      <visual>
+        <xacro:insert_block name="origen_visual"/>
+        <geometry>
+          <mesh filename="package://bringup/meshes/visual/${mesh_visual}"/>
+        </geometry>
+      </visual>
+
+      <!-- COLISIÓN (.stl, primitivas) -->
+      <collision>
+        <xacro:insert_block name="origen_colision"/>
+        <geometry>
+          <mesh filename="package://bringup/meshes/collision/${mesh_colision}"/>
+        </geometry>
+      </collision>
+
+    </link>
+  </xacro:macro>
+
+</robot>

@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="link1">
+    <link name="link1">
+
+      <inertial>
+        <origin xyz="0 0 0.075" rpy="0 0 0"/>
+        <mass value="2.0"/>
+        <inertia ixx="0.000534" ixy="0.0" ixz="0.0"
+                iyy="0.000534" iyz="0.0"
+                izz="0.000992"/>
+      </inertial>
+
+      <visual>
+        <origin xyz="0 0 0.0275" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.0315" length="0.055"/>
+        </geometry>
+        <material name="blue">
+          <color rgba="0.0 0.0 0.8 1.0"/>
+        </material>
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 0.0275" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.0315" length="0.15"/>
+        </geometry>
+      </collision>
+      
+    </link>
+  </xacro:macro>
+</robot>

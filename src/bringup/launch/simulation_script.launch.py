@@ -1,8 +1,9 @@
 import os
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, LogInfo, TimerAction
 from launch.launch_description_sources import AnyLaunchDescriptionSource
-from launch.substitutions import Command
+from launch.substitutions import Command, LaunchConfiguration
+from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
@@ -10,6 +11,27 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
+
+    #===========================================================
+    # DECLARAR LOS ARGUMENTOS DE LANZAMIENTO
+    # ==========================================================
+    sim_mode_arg = DeclareLaunchArgument(
+        'sim_mode',
+        default_value='true',
+        description='Activa el modo simulación (true) o hardware real (false). Activa unos nodos u otros '
+    )
+
+    sampling_rate_arg = DeclareLaunchArgument(
+        'sampling_rate',
+        default_value='20',
+        description='Tasa de muestreo en ms para los temporizadores'
+    )
+
+    # Crear variables de configuración que referencian los argumentos en tiempo de ejecución
+    sim_mode = LaunchConfiguration('sim_mode')
+    sampling_rate = LaunchConfiguration('sampling_rate')
+
+
     #===========================================================
     # URDF & ROBOT STATE PUBLISHER
     # ==========================================================
@@ -17,7 +39,7 @@ def generate_launch_description():
     urdf_path = os.path.join(
         get_package_share_directory("bringup"),
         "description",
-        "manipulador.urdf.xacro"
+        "manipulador_modu.urdf.xacro"
     )
     
     # Ejecutar Xacro para procesar el archivo y convertirlo en string
@@ -33,17 +55,11 @@ def generate_launch_description():
         executable="robot_state_publisher",
         name="robot_state_publisher",
         output="both",
-        parameters=[robot_description],             # Lee toda cadena cinemática del robot 
+        parameters=[robot_description,                  # Lee toda cadena cinemática del robot del archivo .xacro
+                    #{"publish_frequency": 100.0}       Forzar la publicación TF a 100 Hz (en realidad publica a 50Hz)
+                ],
     )
 
-    # 4. Nodo publicador de estados articulares ficticios (Opcional pero recomendado)
-    # Esto asegura que el brazo no se vea colapsado en el punto 0,0,0 mientras no tengas 
-    # tus motores Rozum y Dynamixel publicando datos reales en /joint_states.
-    joint_state_publisher_node = Node(
-        package="joint_state_publisher",
-        executable="joint_state_publisher",
-        name="joint_state_publisher",
-    )
 
 
     #===========================================================
@@ -54,6 +70,8 @@ def generate_launch_description():
         executable="adapterToSimulation",     
         name="adapterToSimulation",      
         output="screen",
+        condition=IfCondition(sim_mode), 
+        parameters=[{'timer_period_ms': sampling_rate}] 
     )
 
     
@@ -84,8 +102,26 @@ def generate_launch_description():
     # LAUNCH DESCRIPTION
     # ==========================================================
     return LaunchDescription([
+        # Añadir las declaraciones aquí
+        sim_mode_arg,         
+        sampling_rate_arg,
+
+        #Lanza los nodos
+        LogInfo(msg="--------------------------------------------------------------------------------"),
+        LogInfo(msg="                      INICIANDO NODOS DE CONTROL                                "),
+        LogInfo(msg="--------------------------------------------------------------------------------"),
+        robot_state_publisher_node,
         keyboard_input_node,
         adapterToSimulation_node,
-        robot_state_publisher_node,
-        foxglove_bridge_node  
+
+        # Acción con retardo para la comunicación
+        TimerAction(
+            period=3.0,
+            actions=[
+                LogInfo(msg="--------------------------------------------------------------------------------"),
+                LogInfo(msg="                      INICIANDO COMUNICACIÓN CON REPRESENTADOR                  "),
+                LogInfo(msg="--------------------------------------------------------------------------------"),
+                foxglove_bridge_node 
+            ]
+        )
     ])
