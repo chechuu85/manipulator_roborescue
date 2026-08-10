@@ -5,6 +5,7 @@
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "manipulator_msgs/msg/hiper_twist.hpp"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 class KeyboardNode : public rclcpp::Node {
 public:
@@ -19,6 +20,10 @@ private:
     void cartesian_mode(const Uint8 *state);
     void articular_mode(const Uint8 *state);
 
+    // Funciones de Interfaz Gráfica 
+    void render_ui();
+    void render_text(const std::string &text, int x, int y, SDL_Color color);
+
     // Publicador y temporizador 
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr publisher_articular_;
     rclcpp::Publisher<manipulator_msgs::msg::HiperTwist>::SharedPtr publisher_cartesian_;
@@ -26,6 +31,8 @@ private:
 
     // Ventana SDL para capturar teclado 
     SDL_Window* window_;
+    SDL_Renderer *renderer_;
+    TTF_Font *font_;
     
     // Variables de control
     float ref_vel_rozum = 0.0f;

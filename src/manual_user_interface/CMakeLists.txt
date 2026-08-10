@@ -14,9 +14,16 @@ find_package(sensor_msgs REQUIRED)
 find_package(SDL2 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(kdl_parser REQUIRED)
+#find_package(SDL2_ttf REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
+
+find_path(SDL2_TTF_INCLUDE_DIR SDL2/SDL_ttf.h)
+find_library(SDL2_TTF_LIBRARY SDL2_ttf)
+if(NOT SDL2_TTF_LIBRARY OR NOT SDL2_TTF_INCLUDE_DIR)
+  message(FATAL_ERROR "No se encontro SDL2_ttf en el sistema.")
+endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -38,8 +45,8 @@ add_executable(keyboard src/keyboard.cpp)
 add_executable(adapterToSimulation src/adapterToSimulation.cpp)
 add_executable(kdlCartesianToJoint src/kdlCartesianToJoint.cpp)
 
-
-target_link_libraries(keyboard SDL2::SDL2)
+target_include_directories(keyboard PUBLIC ${SDL2_TTF_INCLUDE_DIR})
+target_link_libraries(keyboard SDL2::SDL2 ${SDL2_TTF_LIBRARY})
 
 install(TARGETS
   keyboard

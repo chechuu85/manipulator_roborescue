@@ -22,6 +22,8 @@ Opción de usar la librería MOVEIT2 para mejor rendimiento, de momento probamos
 rqt empieza a funcionar mal:
 rm ~/.config/ros.org/rqt_gui.ini
 
+instalar para usar las fuentes de SDL: sudo apt install libsdl2-ttf-dev
+
 
 lanzar programa:
-ros2 launch bringup simulation_script.launch.py sim_mode:=false sampling_rate:=1
+ros2 launch bringup simulation_script.launch.py sim_mode:=false sampling_rate:=1 input_type:=joystick

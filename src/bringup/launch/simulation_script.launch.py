@@ -2,7 +2,7 @@ import os
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, LogInfo, TimerAction
 from launch.launch_description_sources import AnyLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration
+from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -27,9 +27,16 @@ def generate_launch_description():
         description='Tasa de muestreo en ms para los temporizadores'
     )
 
+    input_type_arg = DeclareLaunchArgument(
+        'input_type',
+        default_value='keyboard', # Teclado por defecto
+        description='Elige el controlador: "keyboard" o "joystick"'
+    )
+
     # Crear variables de configuración que referencian los argumentos en tiempo de ejecución
     sim_mode = LaunchConfiguration('sim_mode')
     sampling_rate = LaunchConfiguration('sampling_rate')
+    input_type = LaunchConfiguration('input_type')
 
 
     #===========================================================
@@ -94,6 +101,7 @@ def generate_launch_description():
         executable="kdlCartesianToJoint",     
         name="kdl_ik_node",      
         output="screen",
+        condition=IfCondition(PythonExpression(["'", input_type, "' == 'joystick'"])),
         parameters=[robot_description]  
     )
 
@@ -117,6 +125,7 @@ def generate_launch_description():
         # Añadir las declaraciones aquí
         sim_mode_arg,         
         sampling_rate_arg,
+        input_type_arg,
 
         #Lanza los nodos
         LogInfo(msg="--------------------------------------------------------------------------------"),
