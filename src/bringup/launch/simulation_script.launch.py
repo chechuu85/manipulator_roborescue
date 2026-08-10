@@ -66,7 +66,7 @@ def generate_launch_description():
     # ADAPTADOR SIMULADOR FOXGLOVE
     # ==========================================================
     adapterToSimulation_node = Node(
-        package="user_interface",  
+        package="manual_user_interface",  
         executable="adapterToSimulation",     
         name="adapterToSimulation",      
         output="screen",
@@ -79,7 +79,7 @@ def generate_launch_description():
     # KEYBOARD (C++ SDL2 Node)
     # ==========================================================
     keyboard_input_node = Node(
-        package="user_interface",  
+        package="manual_user_interface",  
         executable="keyboard",     
         name="keyboard",      
         output="screen",
@@ -90,7 +90,7 @@ def generate_launch_description():
     # KDL CARTESIAN TO JOINT NODE
     # ==========================================================
     kdl_ik_node = Node(
-        package="user_interface",  
+        package="manual_user_interface",  
         executable="kdlCartesianToJoint",     
         name="kdl_ik_node",      
         output="screen",

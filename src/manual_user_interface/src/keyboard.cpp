@@ -1,4 +1,4 @@
-#include "user_interface/keyboard.hpp"
+#include "manual_user_interface/keyboard.hpp"
 
 
 // ==========================================
@@ -33,8 +33,7 @@ KeyboardNode::KeyboardNode() : Node("keyboard_node") {
     // Ajustamos el tamaño a 8 elementos de velocidad
     msg_articular_.velocity.resize(8, 0.0); 
 
-    RCLCPP_INFO(this->get_logger(), "Nodo de teclado inicializado. Comienza en espacio articular. Al cambiar al estado
-    espacio cartesiano, el marco de referencia es la base del robot");
+    RCLCPP_INFO(this->get_logger(), "Nodo de teclado inicializado. Comienza en espacio articular. Al cambiar al estado espacio cartesiano, el marco de referencia es la base del robot" );
 
 }
 
