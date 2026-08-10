@@ -6,5 +6,7 @@
 #include "manipulator_structures/msg/dinamixel_motor_data.hpp"
 #include "manipulator_structures/msg/rozum_motor_data.hpp"
 #include "manipulator_structures/msg/manipulator_motor_state.hpp"
+#include "manipulator_structures/msg/hiper_twist.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 
 #endif // MANIPULATOR_STRUCTURES_HPP

@@ -10,8 +10,10 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(manipulator_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(sensor_msgs)
+find_package(sensor_msgs REQUIRED)
 find_package(SDL2 REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(kdl_parser REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -34,6 +36,7 @@ include_directories(
 
 add_executable(keyboard src/keyboard.cpp)
 add_executable(adapterToSimulation src/adapterToSimulation.cpp)
+add_executable(kdlCartesianToJoint src/kdlCartesianToJoint.cpp)
 
 
 target_link_libraries(keyboard SDL2::SDL2)
@@ -41,9 +44,11 @@ target_link_libraries(keyboard SDL2::SDL2)
 install(TARGETS
   keyboard
   adapterToSimulation
+  kdlCartesianToJoint
   DESTINATION lib/${PROJECT_NAME})
 
-ament_target_dependencies(keyboard rclcpp manipulator_msgs geometry_msgs)
+ament_target_dependencies(keyboard rclcpp manipulator_msgs sensor_msgs geometry_msgs)
 ament_target_dependencies(adapterToSimulation rclcpp manipulator_msgs sensor_msgs)
+ament_target_dependencies(kdlCartesianToJoint rclcpp manipulator_msgs sensor_msgs geometry_msgs kdl_parser)
 
 ament_package()

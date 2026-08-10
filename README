@@ -18,3 +18,10 @@ La solución definitiva e industrial es instalar Foxglove de forma nativa direct
 
 
 Opción de usar la librería MOVEIT2 para mejor rendimiento, de momento probamos que todo el código que se tiene funciona correctamente
+
+rqt empieza a funcionar mal:
+rm ~/.config/ros.org/rqt_gui.ini
+
+
+lanzar programa:
+ros2 launch bringup simulation_script.launch.py sim_mode:=false sampling_rate:=1

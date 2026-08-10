@@ -23,14 +23,18 @@ KeyboardNode::KeyboardNode() : Node("keyboard_node") {
     }
 
     // Configurar el publicador y el temporizador 
-    publisher_articular_ = this->create_publisher<manipulator_msgs::msg::ManipulatorMotorStage>("keyboard_articular", 10);
-    publisher_cartesian_ = this->create_publisher<geometry_msgs::msg::Twist>("keyboard_cartesian", 10);
+    publisher_articular_ = this->create_publisher<sensor_msgs::msg::JointState>("input_articular", 10);
+    publisher_cartesian_ = this->create_publisher<manipulator_msgs::msg::HiperTwist>("input_cartesian", 10);
     timer_ = this->create_wall_timer(std::chrono::milliseconds(timer_period_ms), 
              std::bind(&KeyboardNode::timer_callback, this));
     
-    flag_q = flag_a = flag_t = flag_g = flag_m= false;
+    flag_q = flag_a = flag_t = flag_g = flag_m = flag_b = false;
 
-    RCLCPP_INFO(this->get_logger(), "Nodo de teclado inicializado. ");
+    // Ajustamos el tamaño a 8 elementos de velocidad
+    msg_articular_.velocity.resize(8, 0.0); 
+
+    RCLCPP_INFO(this->get_logger(), "Nodo de teclado inicializado. Comienza en espacio articular. Al cambiar al estado
+    espacio cartesiano, el marco de referencia es la base del robot");
 
 }
 
@@ -98,16 +102,16 @@ void KeyboardNode::articular_mode(const Uint8 *state){
     } else flag_g = false;
 
     // Mapeo de columnas para motores. Rozum (3 columnas W/S, E/D, R/F)
-    msg_articular_.rozum_motors[0].velocity = state[SDL_SCANCODE_W] ? ref_vel_rozum : (state[SDL_SCANCODE_S] ? -ref_vel_rozum : 0);
-    msg_articular_.rozum_motors[1].velocity = state[SDL_SCANCODE_E] ? ref_vel_rozum : (state[SDL_SCANCODE_D] ? -ref_vel_rozum : 0);
-    msg_articular_.rozum_motors[2].velocity = state[SDL_SCANCODE_R] ? ref_vel_rozum : (state[SDL_SCANCODE_F] ? -ref_vel_rozum : 0);
+    msg_articular_.velocity[0] = state[SDL_SCANCODE_W] ? ref_vel_rozum : (state[SDL_SCANCODE_S] ? -ref_vel_rozum : 0);
+    msg_articular_.velocity[1] = state[SDL_SCANCODE_E] ? ref_vel_rozum : (state[SDL_SCANCODE_D] ? -ref_vel_rozum : 0);
+    msg_articular_.velocity[2] = state[SDL_SCANCODE_R] ? ref_vel_rozum : (state[SDL_SCANCODE_F] ? -ref_vel_rozum : 0);
 
     // Asignación directa a tus 5 motores Dinamixel(teclas I/K, Y/H, U/J, O,L , P/Ñ))
-    msg_articular_.dinamixel_motors[0].velocity = state[SDL_SCANCODE_Y] ? ref_vel_dinamixel : (state[SDL_SCANCODE_H] ? -ref_vel_dinamixel : 0);
-    msg_articular_.dinamixel_motors[1].velocity = state[SDL_SCANCODE_U] ? ref_vel_dinamixel : (state[SDL_SCANCODE_J] ? -ref_vel_dinamixel : 0);
-    msg_articular_.dinamixel_motors[2].velocity = state[SDL_SCANCODE_I] ? ref_vel_dinamixel : (state[SDL_SCANCODE_K] ? -ref_vel_dinamixel : 0);
-    msg_articular_.dinamixel_motors[3].velocity = state[SDL_SCANCODE_O] ? ref_vel_dinamixel : (state[SDL_SCANCODE_L] ? -ref_vel_dinamixel : 0);
-    msg_articular_.dinamixel_motors[4].velocity = state[SDL_SCANCODE_P] ? ref_vel_dinamixel : (state[SDL_SCANCODE_SEMICOLON] ? -ref_vel_dinamixel : 0);
+    msg_articular_.velocity[3] = state[SDL_SCANCODE_Y] ? ref_vel_dinamixel : (state[SDL_SCANCODE_H] ? -ref_vel_dinamixel : 0);
+    msg_articular_.velocity[4] = state[SDL_SCANCODE_U] ? ref_vel_dinamixel : (state[SDL_SCANCODE_J] ? -ref_vel_dinamixel : 0);
+    msg_articular_.velocity[5] = state[SDL_SCANCODE_I] ? ref_vel_dinamixel : (state[SDL_SCANCODE_K] ? -ref_vel_dinamixel : 0);
+    msg_articular_.velocity[6] = state[SDL_SCANCODE_O] ? ref_vel_dinamixel : (state[SDL_SCANCODE_L] ? -ref_vel_dinamixel : 0);
+    msg_articular_.velocity[7] = state[SDL_SCANCODE_P] ? ref_vel_dinamixel : (state[SDL_SCANCODE_SEMICOLON] ? -ref_vel_dinamixel : 0);
                                                                             // Se usa ; en lugar de la Ñ por compatibilidad de teclado
 }
 
@@ -121,18 +125,35 @@ void KeyboardNode::cartesian_mode(const Uint8 *state){
     } else flag_g = false;
 
     // Eje X (Avanzar/Retroceder): Teclas W / S -- Eje Y (Izquierda/Derecha): Teclas A / D -- Eje Z (Arriba/Abajo): Teclas Z / X
-    msg_cartesian_.linear.x = state[SDL_SCANCODE_W] ? ref_vel_cartesian : (state[SDL_SCANCODE_S] ? -ref_vel_cartesian : 0.0);
-    msg_cartesian_.linear.y = state[SDL_SCANCODE_A] ? ref_vel_cartesian : (state[SDL_SCANCODE_D] ? -ref_vel_cartesian : 0.0);
-    msg_cartesian_.linear.z = state[SDL_SCANCODE_Z] ? ref_vel_cartesian : (state[SDL_SCANCODE_X] ? -ref_vel_cartesian : 0.0);
+    msg_cartesian_.twist_command.linear.x = state[SDL_SCANCODE_W] ? ref_vel_cartesian : (state[SDL_SCANCODE_S] ? -ref_vel_cartesian : 0.0);
+    msg_cartesian_.twist_command.linear.y = state[SDL_SCANCODE_A] ? ref_vel_cartesian : (state[SDL_SCANCODE_D] ? -ref_vel_cartesian : 0.0);
+    msg_cartesian_.twist_command.linear.z = state[SDL_SCANCODE_Z] ? ref_vel_cartesian : (state[SDL_SCANCODE_X] ? -ref_vel_cartesian : 0.0);
 
-    // Ejes angulares (Orientación del end-effector)
     // Yaw (Rotar Z): Teclas U / J -- // Pitch (Rotar Y): Teclas I / K -- Roll (Rotar X): Teclas O / L
-    msg_cartesian_.angular.z = state[SDL_SCANCODE_U] ? ref_vel_cartesian : (state[SDL_SCANCODE_J] ? -ref_vel_cartesian : 0.0);
-    msg_cartesian_.angular.y = state[SDL_SCANCODE_I] ? ref_vel_cartesian : (state[SDL_SCANCODE_K] ? -ref_vel_cartesian : 0.0);
-    msg_cartesian_.angular.x = state[SDL_SCANCODE_O] ? ref_vel_cartesian : (state[SDL_SCANCODE_L] ? -ref_vel_cartesian : 0.0);
+    msg_cartesian_.twist_command.angular.z = state[SDL_SCANCODE_U] ? ref_vel_cartesian : (state[SDL_SCANCODE_J] ? -ref_vel_cartesian : 0.0);
+    msg_cartesian_.twist_command.angular.y = state[SDL_SCANCODE_I] ? ref_vel_cartesian : (state[SDL_SCANCODE_K] ? -ref_vel_cartesian : 0.0);
+    msg_cartesian_.twist_command.angular.x = state[SDL_SCANCODE_O] ? ref_vel_cartesian : (state[SDL_SCANCODE_L] ? -ref_vel_cartesian : 0.0);
 
-    // Publicar mensaje cartesiano
-    publisher_cartesian_->publish(msg_cartesian_);
+    // Garra (Abrir/Cerrar: Teclas C / V -- 
+    msg_cartesian_.gripper = state[SDL_SCANCODE_C] ? ref_vel_cartesian : (state[SDL_SCANCODE_V] ? -ref_vel_cartesian : 0.0);
+
+    if (state[SDL_SCANCODE_B]) {
+        if (!flag_b) {
+            referencia_base_ = !referencia_base_;
+            flag_b = true;
+            RCLCPP_INFO(this->get_logger(), "Lugar referencia a: %s", 
+                        referencia_base_ ? "BASE" : "TCP");
+        }
+    } else {
+        flag_b = false;
+    }
+
+    // Seleccionar lugar referencia
+    if (referencia_base_) {
+        msg_cartesian_.command_info = "BASE";
+    } else {
+        msg_cartesian_.command_info = "TCP";
+    }
 }
 
 

@@ -63,7 +63,7 @@ def generate_launch_description():
 
 
     #===========================================================
-    # KEYBOARD (C++ SDL2 Node)
+    # ADAPTADOR SIMULADOR FOXGLOVE
     # ==========================================================
     adapterToSimulation_node = Node(
         package="user_interface",  
@@ -83,6 +83,18 @@ def generate_launch_description():
         executable="keyboard",     
         name="keyboard",      
         output="screen",
+        parameters=[{'timer_period_ms': sampling_rate}] 
+    )
+
+    #===========================================================
+    # KDL CARTESIAN TO JOINT NODE
+    # ==========================================================
+    kdl_ik_node = Node(
+        package="user_interface",  
+        executable="kdlCartesianToJoint",     
+        name="kdl_ik_node",      
+        output="screen",
+        parameters=[robot_description]  
     )
 
     #===========================================================
@@ -113,6 +125,7 @@ def generate_launch_description():
         robot_state_publisher_node,
         keyboard_input_node,
         adapterToSimulation_node,
+        kdl_ik_node,
 
         # Acción con retardo para la comunicación
         TimerAction(

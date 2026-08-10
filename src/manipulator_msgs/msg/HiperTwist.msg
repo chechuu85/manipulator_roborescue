@@ -1,0 +1,3 @@
+float32 gripper
+string command_info
+geometry_msgs/Twist twist_command
