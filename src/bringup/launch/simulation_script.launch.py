@@ -67,8 +67,7 @@ def generate_launch_description():
                 ],
     )
 
-
-
+  
     #===========================================================
     # ADAPTADOR SIMULADOR FOXGLOVE
     # ==========================================================
@@ -101,8 +100,29 @@ def generate_launch_description():
         executable="kdlCartesianToJoint",     
         name="kdl_ik_node",      
         output="screen",
-        condition=IfCondition(PythonExpression(["'", input_type, "' == 'joystick'"])),
+        condition=IfCondition(PythonExpression(["'", input_type, "' == 'keyboard'"])),
         parameters=[robot_description]  
+    )
+
+    #===========================================================
+    # KDL JOINT TO CARTESIAN NODE
+    # ==========================================================
+    kdl_fk_node = Node(
+        package="manual_user_interface",  
+        executable="kdlJointToCartesian",     
+        name="kdl_fk_node",      
+        output="screen",
+        parameters=[robot_description]  
+    )
+
+    #===========================================================
+    # TRAJECTORY PLANNING NODE
+    # ==========================================================
+    trajectory_planning_node = Node(
+        package="advanced_user_manual",  
+        executable="trajectoryPlanning",     
+        name="trajectory_planning_node",      
+        output="screen",
     )
 
     #===========================================================
@@ -135,6 +155,8 @@ def generate_launch_description():
         keyboard_input_node,
         adapterToSimulation_node,
         kdl_ik_node,
+        kdl_fk_node,
+        trajectory_planning_node,
 
         # Acción con retardo para la comunicación
         TimerAction(

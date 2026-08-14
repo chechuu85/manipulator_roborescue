@@ -7,9 +7,35 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(manipulator_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(yaml-cpp REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
+
+# ==========================================
+# CREAR LA LIBRERÍA MATEMÁTICA
+# ==========================================
+
+# Declarar trajectory_math como una librería compartida (SHARED)
+add_library(trajectory_math SHARED 
+  src/trajectory_math.cpp
+)
+
+# Añadir los directorios de cabecera de tu paquete a la librería
+target_include_directories(trajectory_math PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+# Enlazar Eigen3 a tu librería.
+target_link_libraries(trajectory_math Eigen3::Eigen)
+ament_target_dependencies(trajectory_math tf2 yaml-cpp)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -22,5 +48,20 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+include_directories(
+  include
+)
+
+add_executable(trajectoryPlanning src/trajectoryPlanning.cpp)
+
+target_link_libraries(trajectoryPlanning trajectory_math)
+
+install(TARGETS
+  trajectory_math
+  trajectoryPlanning
+  DESTINATION lib/${PROJECT_NAME})
+
+ament_target_dependencies(trajectoryPlanning rclcpp geometry_msgs std_msgs Eigen3 manipulator_msgs)
 
 ament_package()

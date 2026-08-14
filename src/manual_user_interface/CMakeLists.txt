@@ -14,6 +14,8 @@ find_package(sensor_msgs REQUIRED)
 find_package(SDL2 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(kdl_parser REQUIRED)
+find_package(std_msgs REQUIRED)
+
 #find_package(SDL2_ttf REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -44,18 +46,25 @@ include_directories(
 add_executable(keyboard src/keyboard.cpp)
 add_executable(adapterToSimulation src/adapterToSimulation.cpp)
 add_executable(kdlCartesianToJoint src/kdlCartesianToJoint.cpp)
+add_executable(kdlJointToCartesian src/kdlJointToCartesian.cpp)
 
+# Dice donde buscar archivos
 target_include_directories(keyboard PUBLIC ${SDL2_TTF_INCLUDE_DIR})
+
+# Enlace todos las librerías compiladas
 target_link_libraries(keyboard SDL2::SDL2 ${SDL2_TTF_LIBRARY})
+target_link_libraries(kdlCartesianToJoint Eigen3::Eigen)
 
 install(TARGETS
   keyboard
   adapterToSimulation
   kdlCartesianToJoint
+  kdlJointToCartesian
   DESTINATION lib/${PROJECT_NAME})
 
-ament_target_dependencies(keyboard rclcpp manipulator_msgs sensor_msgs geometry_msgs)
+ament_target_dependencies(keyboard rclcpp manipulator_msgs sensor_msgs geometry_msgs std_msgs)
 ament_target_dependencies(adapterToSimulation rclcpp manipulator_msgs sensor_msgs)
 ament_target_dependencies(kdlCartesianToJoint rclcpp manipulator_msgs sensor_msgs geometry_msgs kdl_parser)
+ament_target_dependencies(kdlJointToCartesian rclcpp manipulator_msgs sensor_msgs geometry_msgs kdl_parser)
 
 ament_package()

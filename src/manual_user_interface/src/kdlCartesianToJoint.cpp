@@ -1,5 +1,4 @@
 #include "manual_user_interface/kdlCartesianToJoint.hpp"
-#include <algorithm>
 
 // ==========================================
 // CONSTRUCTOR Y DESTRUCTOR
@@ -9,12 +8,12 @@ KdlCartesianToJoint::KdlCartesianToJoint() : Node("kdl_ik_node")
     joint_velocity_limit_ = 1.0;
 
     // Nombres de los joints que participan en la cinemática hasta el TCP (link7)
-    // No incluimos joint7 ni joint8 porque son de la garra y no afectan la pose.
+    // No incluimos joint8 ni joint9 porque son de la garra y no afectan la pose.
     joint_names_ = { "joint1", "joint2", "joint3", "joint4", "joint5", "joint6" };
     n_joints_ = static_cast<int>(joint_names_.size());
 
     // Inicializar KDL y verificar que se ha inicializado correctamente
-    if (!initKDL()) {
+    if (!this->initKDL()) {
         RCLCPP_ERROR(this->get_logger(), "No se pudo inicializar KDL. Abortando.");
         rclcpp::shutdown();
     }
@@ -54,11 +53,14 @@ bool KdlCartesianToJoint::initKDL()
     }
 
     // Extraemos la cadena desde la base hasta la muñeca/TCP (link7)
-    tree.getChain("base_link", "link7", chain_);
+    if (!tree.getChain("base_link", "link7", chain_)) {
+        RCLCPP_ERROR(this->get_logger(), "No se pudo obtener la cadena cinemática base_link -> link7.");
+        return false;
+    }
+
     
     // Extrae las articulaciones móviles que hay en la cadena
-    unsigned int n = chain_.getNrOfJoints();
-    q_current_.resize(n);
+    q_current_.resize(chain_.getNrOfJoints());
     KDL::SetToZero(q_current_);
 
     // Inicializamos el solver IK de velocidades (Damped Least Squares) evitando singularidades 

@@ -39,10 +39,11 @@ KeyboardNode::KeyboardNode() : Node("keyboard_node") {
     // Configurar el publicador y el temporizador 
     publisher_articular_ = this->create_publisher<sensor_msgs::msg::JointState>("input_articular", 10);
     publisher_cartesian_ = this->create_publisher<manipulator_msgs::msg::HiperTwist>("input_cartesian", 10);
+    publisher_trayectory_ = this->create_publisher<std_msgs::msg::String>("input_instr_trayectory", 10);
     timer_ = this->create_wall_timer(std::chrono::milliseconds(timer_period_ms), 
              std::bind(&KeyboardNode::timer_callback, this));
     
-    flag_q = flag_a = flag_t = flag_g = flag_m = flag_b = false;
+    flag_q = flag_a = flag_t = flag_g = flag_m = flag_b = flag_h = flag_p = flag_n = false;
 
     // Ajustamos el tamaño a 8 elementos de velocidad
     msg_articular_.velocity.resize(8, 0.0); 
@@ -75,8 +76,18 @@ void KeyboardNode::timer_callback() {
     
     const Uint8 *state = SDL_GetKeyboardState(NULL);
 
-    // Lógica para alternar el modo con la tecla 'M'
-    if (state[SDL_SCANCODE_M]) {
+    // Lógica para alternar el modo con la tecla 'N'
+     if (state[SDL_SCANCODE_N]) {
+        if (!flag_n) {
+            manual_mode_ = !manual_mode_;
+            flag_n = true;
+        }
+    } else {
+        flag_n = false;
+    }
+
+    // Lógica para alternar espacio de estados con la tecla 'M' en estado manual 
+    if (state[SDL_SCANCODE_M] && manual_mode_) {
         if (!flag_m) {
             cartesian_mode_ = !cartesian_mode_;
             flag_m = true;
@@ -87,14 +98,19 @@ void KeyboardNode::timer_callback() {
     }
 
     // Seleccionar el modo de operación
-    if (cartesian_mode_){
-        cartesian_mode(state);
-        publisher_cartesian_->publish(msg_cartesian_);
-    }else{
-        articular_mode(state);
-        publisher_articular_->publish(msg_articular_);
+    if (manual_mode_){
+        if (cartesian_mode_){
+            cartesian_mode(state);
+            publisher_cartesian_->publish(msg_cartesian_);
+        }else{
+            articular_mode(state);
+            publisher_articular_->publish(msg_articular_);
+        }
+    } else {
+        trajectory_mode(state);
+        publisher_trayectory_->publish(msg_trayectory_);
     }
-
+    
     // Dibujar la interfaz en cada iteracion del timer
     render_ui();
 }
@@ -174,6 +190,43 @@ void KeyboardNode::cartesian_mode(const Uint8 *state){
 }
 
 
+void KeyboardNode::trajectory_mode(const Uint8 *state){
+
+    // Así nos aseguramos de no reenviar comandos antiguos si una tecla se mantiene pulsada.
+    msg_trayectory_.data = "";
+
+    // Guardar posición robot (G)
+    if (state[SDL_SCANCODE_G]) { 
+        if (!flag_g) { 
+            msg_trayectory_.data = "SAVE"; 
+            flag_g = true; 
+        }
+    } else {
+        flag_g = false; // Se reinicia solo al soltar la tecla
+    }
+
+    // Poner punto como casa (H)
+    if (state[SDL_SCANCODE_H]) { 
+        if (!flag_h) { 
+            msg_trayectory_.data = "HOME"; 
+            flag_h = true; 
+        }
+    } else {
+        flag_h = false;
+    }
+
+    // Ejecutar trayectoria (P)
+    if (state[SDL_SCANCODE_P]) { 
+        if (!flag_p) { 
+            msg_trayectory_.data = "PLAY"; // Corregido: antes decía "SAVE"
+            flag_p = true; 
+        }
+    } else {
+        flag_p = false;
+    }
+
+}
+
 // ==========================================
 // RENDERIZADO DE INTERFAZ GRÁFICA
 // ==========================================
@@ -211,33 +264,54 @@ void KeyboardNode::render_ui() {
 
     render_text("=== PANEL DE CONTROL DEL BRAZO ROBOT ===", col, y, c_cyan); y += 40;
 
-    std::string modo_txt = cartesian_mode_ ? "MODO ACTUAL: CARTESIANO" : "MODO ACTUAL: ARTICULAR";
+    std::string modo_txt = manual_mode_ ? "MODO ACTUAL:  MANUAL " : "MODO ACTUAL: TRAYECTORIA"; 
     render_text(modo_txt, col, y, c_green); y += 40;
+    // Asumimos que la tecla 'M' sigue sirviendo para alternar entre manual y trayectoria
+        render_text("[N] Cambiar Modo", col, y, c_white); y += 40;
 
-    render_text("[M] Cambiar Modo | [B] Cambiar Ref. (Base / TCP)", col, y, c_white); y +=40;
+    if (manual_mode_){
+        std::string std_space_txt = cartesian_mode_ ? "ESPACIO DE ESTADOS ACTUAL: CARTESIANO" : "ESPACIO DE ESTADOS ACTUAL: ARTICULAR";
+        render_text(std_space_txt, col, y, c_green); y += 40;
 
-    if (!cartesian_mode_) {
-        render_text("--- CONTROLES MODO ARTICULAR ---", col, y, c_yellow); y += 30;
-        render_text("Velocidades: [Q/A] Rozum | [T/G] Dinamixel", col, y, c_gray); y += 35;
-        render_text("Articulaciones Rozum (Base a Codo):", col, y, c_white); y += 25;
-        render_text(" [W/S] Joint 1 (Base)", col, y, c_white); y += 25;
-        render_text(" [E/D] Joint 2", col, y, c_white); y += 25;
-        render_text(" [R/F] Joint 3", col, y, c_white); y += 35;
-        render_text("Articulaciones Dinamixel (Muñeca y Garra):", col, y, c_white); y += 25;
-        render_text(" [Y/H] Joint 4 | [U/J] Joint 5 | [I/K] Joint 6", col, y, c_white); y += 25;
-        render_text(" [O/L] Dedo Izquierdo | [P/ ;] Dedo Derecho", col, y, c_white); y += 25;
+        render_text("[M] Cambiar Espacio de Estados | [B] Cambiar Ref. (Base / TCP)", col, y, c_white); y +=40;
+
+        if (!cartesian_mode_) {
+            render_text("--- CONTROLES MODO ARTICULAR ---", col, y, c_yellow); y += 30;
+            render_text("Velocidades: [Q/A] Rozum | [T/G] Dinamixel", col, y, c_gray); y += 35;
+            render_text("Articulaciones Rozum (Base a Codo):", col, y, c_white); y += 25;
+            render_text(" [W/S] Joint 1 (Base)", col, y, c_white); y += 25;
+            render_text(" [E/D] Joint 2", col, y, c_white); y += 25;
+            render_text(" [R/F] Joint 3", col, y, c_white); y += 35;
+            render_text("Articulaciones Dinamixel (Muñeca y Garra):", col, y, c_white); y += 25;
+            render_text(" [Y/H] Joint 4 | [U/J] Joint 5 | [I/K] Joint 6", col, y, c_white); y += 25;
+            render_text(" [O/L] Dedo Izquierdo | [P/ ;] Dedo Derecho", col, y, c_white); y += 25;
+        } else {
+            render_text("--- CONTROLES MODO CARTESIANO ---", col, y, c_yellow); y += 30;
+            std::string ref_str = referencia_base_ ? "Referencia actual: BASE" : "Referencia actual: TCP";
+            render_text(ref_str, col, y, c_gray); y += 35;
+            render_text("Velocidad Cartesiana: [T/G] (+/-)", col, y, c_gray); y += 35;
+            render_text("Traslacion (XYZ):", col, y, c_white); y += 25;
+            render_text(" [W/S] X (Avance) | [A/D] Y (Lateral) | [Z/X] Z (Vertical)", col, y, c_white); y += 35;
+            render_text("Rotacion (Roll, Pitch, Yaw):", col, y, c_white); y += 25;
+            render_text(" [O/L] Roll (X) | [I/K] Pitch (Y) | [U/J] Yaw (Z)", col, y, c_white); y += 35;
+            render_text("Herramienta:", col, y, c_white); y += 25;
+            render_text(" [C/V] Abrir / Cerrar Garra", col, y, c_white); y += 25;
+        }
     } else {
-        render_text("--- CONTROLES MODO CARTESIANO ---", col, y, c_yellow); y += 30;
-        std::string ref_str = referencia_base_ ? "Referencia actual: BASE" : "Referencia actual: TCP";
-        render_text(ref_str, col, y, c_gray); y += 35;
-        render_text("Velocidad Cartesiana: [T/G] (+/-)", col, y, c_gray); y += 35;
-        render_text("Traslacion (XYZ):", col, y, c_white); y += 25;
-        render_text(" [W/S] X (Avance) | [A/D] Y (Lateral) | [Z/X] Z (Vertical)", col, y, c_white); y += 35;
-        render_text("Rotacion (Roll, Pitch, Yaw):", col, y, c_white); y += 25;
-        render_text(" [O/L] Roll (X) | [I/K] Pitch (Y) | [U/J] Yaw (Z)", col, y, c_white); y += 35;
-        render_text("Herramienta:", col, y, c_white); y += 25;
-        render_text(" [C/V] Abrir / Cerrar Garra", col, y, c_white); y += 25;
+
+        render_text("--- CONTROLES MODO TRAYECTORIA ---", col, y, c_yellow); y += 30;
+        
+        // Sección de guardado de puntos
+        render_text("Gestion de Puntos:", col, y, c_gray); y += 35;
+        render_text(" [G] Guardar posicion actual (SAVE)", col, y, c_white); y += 25;
+        render_text(" [H] Poner punto como casa (HOME)", col, y, c_white); y += 35;
+        
+        // Sección de ejecución
+        render_text("Ejecucion:", col, y, c_gray); y += 35;
+        render_text(" [P] Ejecutar trayectoria (PLAY)", col, y, c_white); y += 25;
+
     }
+
     SDL_RenderPresent(renderer_);
 }
 

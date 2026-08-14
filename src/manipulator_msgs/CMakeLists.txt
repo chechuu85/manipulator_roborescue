@@ -30,6 +30,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DinamixelMotorData.msg"
   "msg/ManipulatorMotorStage.msg"
   "msg/HiperTwist.msg"
+  "srv/GetCurrentPose.srv"
   DEPENDENCIES geometry_msgs
 )
 

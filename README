@@ -27,3 +27,10 @@ instalar para usar las fuentes de SDL: sudo apt install libsdl2-ttf-dev
 
 lanzar programa:
 ros2 launch bringup simulation_script.launch.py sim_mode:=false sampling_rate:=1 input_type:=joystick
+
+
+***IMPORTANTE***
+replantearse lo de crear nodos que controlen qué topics tienen la prioridad en topics paralelos (ejemplo: los nodos joystick y kdlcartesian que tienen topics que trajan en paralelo)
+
+instalar esta librería si no la tengo
+sudo apt install libyaml-cpp-dev

@@ -1,6 +1,8 @@
 #ifndef KDL_CARTESIAN_TO_JOINT_HPP
 #define KDL_CARTESIAN_TO_JOINT_HPP
 
+#include <algorithm>
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "manipulator_msgs/msg/hiper_twist.hpp"
