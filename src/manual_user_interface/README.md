@@ -125,6 +125,7 @@ Este nodo utiliza la librería KDL. El nodo lee la descripción geométrica del 
 Cuando otro nodo del ecosistema necesita saber la posición cartesiana exacta de la garra, hace una petición a través de un Servicio de ROS 2. El nodo calcula la pose en ese preciso instante y la devuelve instantáneamente.
 
 ### Diagrama de Flujo
+
 ```mermaid
 graph LR
     %% Definición de estilos
@@ -133,16 +134,16 @@ graph LR
     classDef service fill:#8e44ad,stroke:#fff,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
     classDef param fill:#d35400,stroke:#fff,stroke-width:1px,color:#fff;
 
-    %% Nodos e Interfaces
-    A[/ /joint_states<br/>(sensor_msgs/JointState) /]
-    B((kdl_joint_to_cartesian))
-    C{{ /service_odometry_pose<br/>(manipulator_msgs/GetCurrentPose) }}
-    D[ Parámetro:<br/>robot_description ]
+    %% Nodos e Interfaces (Texto envuelto en comillas para evitar errores de parseo)
+    A[/"/joint_states<br/>(sensor_msgs/JointState)"/]
+    B(("kdl_joint_to_cartesian"))
+    C{{"/service_odometry_pose<br/>(manipulator_msgs/GetCurrentPose)"}}
+    D["Parámetro:<br/>robot_description"]
 
     %% Conexiones
-    A -->|Suscriptor (Inputs)| B
+    A -->|Suscriptor| B
     D -.->|Lectura URDF| B
-    B <-->|Servicio (Request/Response)| C
+    B <-->|Servicio Request/Response| C
     
     %% Aplicación de estilos
     class B node;
