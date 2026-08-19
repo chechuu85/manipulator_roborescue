@@ -14,7 +14,7 @@ El nodo actúa como el "cerebro de control manual" del sistema, traduciendo las 
 
 3. Modo Trayectoria: Una interfaz tipo Teach Pendant para guardar puntos en el espacio y ordenar la ejecución de trayectorias planificadas.
 
-### Diagrama de Flujo (Mermaid)
+### Diagrama de Flujo
 
 ```mermaid
 graph LR
@@ -118,3 +118,61 @@ Nodo por implementar, debería hacer mismas funciones que el teclado para realiz
 
 
 ## kdlJointToCartesian.hpp/kdlJointToCartesian.cpp
+Este paquete incluye el nodo kdl_joint_to_cartesian. Su objetivo es calcular la Cinemática Directa (Forward Kinematics) del robot en tiempo real al recibir una petición.
+
+Este nodo utiliza la librería KDL. El nodo lee la descripción geométrica del robot (URDF) cargada en el sistema, construye una cadena cinemática (desde la base hasta la herramienta) y se mantiene escuchando la posición angular actual de cada motor.
+
+Cuando otro nodo del ecosistema necesita saber la posición cartesiana exacta de la garra, hace una petición a través de un Servicio de ROS 2. El nodo calcula la pose en ese preciso instante y la devuelve instantáneamente.
+
+### Diagrama de Flujo
+```mermaid
+graph LR
+    %% Definición de estilos
+    classDef node fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff;
+    classDef topic fill:#025997,stroke:#fff,stroke-width:1px,color:#fff;
+    classDef service fill:#8e44ad,stroke:#fff,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
+    classDef param fill:#d35400,stroke:#fff,stroke-width:1px,color:#fff;
+
+    %% Nodos e Interfaces
+    A[/ /joint_states<br/>(sensor_msgs/JointState) /]
+    B((kdl_joint_to_cartesian))
+    C{{ /service_odometry_pose<br/>(manipulator_msgs/GetCurrentPose) }}
+    D[ Parámetro:<br/>robot_description ]
+
+    %% Conexiones
+    A -->|Suscriptor (Inputs)| B
+    D -.->|Lectura URDF| B
+    B <-->|Servicio (Request/Response)| C
+    
+    %% Aplicación de estilos
+    class B node;
+    class A topic;
+    class C service;
+    class D param;
+```
+
+### Arquitectura y funciones principales
+
+1. Inicialización y Destrucción
+- KdlJointToCartesian(): Define los nombres de las articulaciones (joint1 a joint6), llama a initKdl() para configurar la matemática, y levanta el suscriptor de las articulaciones y el servidor del servicio de odometría 
+
+Entradas: void
+Salidas: void
+Parametros implícitos usados: 
+
+- ~KdlJointToCartesian(): Destructor estándar que imprime un mensaje de apagado seguro en los logs de ROS.
+
+Entradas: void
+Salidas: void
+Parametros implícitos usados: void
+
+- initKdl(): Extrae el modelo URDF de los parámetros de ROS. Utiliza el kdl_parser para transformar ese XML en un árbol matemático (KDL::Tree). Luego extrae específicamente la cadena que va desde el origen (base_link) hasta la muñeca/herramienta (link7). Finalmente, reserva memoria para el array de posiciones (q_current_) e inicializa el Solver iterativo de Cinemática Directa (ChainFkSolverPos_recursive).
+
+Entradas: void
+Salidas: return true/false (bool): devuelve si se ha realizado con exito o no
+Parametros implícitos usados: void
+
+2. Arquitectura y funciones principales
+
+
+
