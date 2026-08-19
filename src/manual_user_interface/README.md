@@ -15,9 +15,10 @@ El nodo actúa como el "cerebro de control manual" del sistema, traduciendo las 
 3. Modo Trayectoria: Una interfaz tipo Teach Pendant para guardar puntos en el espacio y ordenar la ejecución de trayectorias planificadas.
 
 ### Diagrama de Flujo (Mermaid)
+
 ```mermaid
 graph LR
-    A[/Teclado Físico<br/>Eventos SDL2/] -->|Hardware| B((keyboard_node))
+    A[/Teclado Físico<br/] -->|Hardware| B((keyboard_node))
     B -->|sensor_msgs/JointState| C[/input_articular/]
     B -->|manipulator_msgs/HiperTwist| D[/input_cartesian/]
     B -->|std_msgs/String| E[/input_instr_trayectory/]
@@ -29,6 +30,7 @@ graph LR
     class B node;
     class C,D,E topic;
     class A hw;
+```
 
 
 
