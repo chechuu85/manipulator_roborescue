@@ -1,4 +1,5 @@
 # CONTROL MANUAL DEL ROBOT
+A continuación se explican cómo trabajan los siguientes archivos. 
 
 ## keyboard.hpp/keyboard.cpp
 
@@ -173,7 +174,37 @@ Entradas: void
 Salidas: return true/false (bool): devuelve si se ha realizado con exito o no
 Parametros implícitos usados: void
 
+
 2. Arquitectura y funciones principales
+- jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg): Se ejecuta automáticamente cada vez que los motores publican su posición. Filtra el mensaje entrante, busca específicamente las articulaciones declaradas en joint_names_ e inyecta esos valores en radianes dentro de la matriz interna de KDL (q_current_).
+
+Entradas: msg (const sensor_msgs::msg::JointState::SharedPtr (puntero inteligente)): arrays con los nombres y posiciones actuales de los motores reportados
+Salidas: return true/false (bool): devuelve si se ha realizado con exito o no
+Parametros implícitos usados: void 
 
 
+- handleCurrentPose(...): Toma la matriz de posiciones articulares actual (q_current_) y la pasa por el solver matemático fk_solver_->JntToCart(). El solver calcula un "Frame" (Matriz de transformación homogénea) que contiene el vector de traslación (X,Y,Z) y la matriz de rotación del efector final. Finalmente, extrae estos datos, convierte la rotación a Cuaterniones por estándar de ROS y los empaqueta en la respuesta al nodo cliente.
 
+Entradas: request_header (rmw_request_id_t): Metadatos de la red de ROS sobre quién hizo la petición; request (Puntero a manipulator_msgs::srv::GetCurrentPose::Request): Los datos que envía el cliente (vacío en este caso).; response (Puntero a manipulator_msgs::srv::GetCurrentPose::Response): Objeto de respuesta que debemos rellenar.
+Salidas: void
+Parametros implícitos usados: void 
+
+
+3. Entrada en ejecución: inicializa el ecosistema ROS 2, crea el nodo KdlJointToCartesian y lo deja ejecutándose en bucle (spin) hasta que se interrumpe el programa
+
+Entradas: argc (int): indica el número de argumentos o palabras pasadas por la terminal al ejecutar el nodo; argv (char * []): Contiene los textos exactos que el usuario escribió en la terminal al lanzar el comando de ROS 2.
+Salidas: return 0 (int): 
+Parametros implícitos usados: lee directamente los parámetros globales
+
+### Variable globales
+- joint_names_ (std::vector<std::string>): Almacena los nombres exactos de los motores de tu brazo tal y como están definidos en el URDF
+
+- chain_ (KDL::Chain): Representa el "esqueleto físico" de tu robot dentro de la memoria matemática. Guarda todas las distancias entre los motores (eslabones o links) y los ejes de rotación de cada articulación, empezando desde la base del robot hasta la punta de la herramienta (TCP)
+
+- q_current_ (KDL::JntArray): Almacena los ángulos en radianes en los que se encuentra cada motor en este preciso instante. Se actualiza a la velocidad del rayo cada vez que los drivers del hardware publican datos. La letra 'q' se usa tradicionalmente en robótica clásica para representar las coordenadas articulares.
+
+- fk_solver_ (std::shared_ptr<KDL::ChainFkSolverPos_recursive>): Toma el esqueleto físico del robot (chain_) y los ángulos actuales de los motores (q_current_), aplica toda la trigonometría compleja (matrices de transformación homogénea) eslabón por eslabón, y descubre exactamente en qué coordenadas cartesianas (X, Y, Z) está la punta del brazo.
+
+- joint_states_sub_ (rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr): Es el canal que conecta tu software matemático con los drivers físicos de los motores. Se encarga de escuchar de fondo (en el tópico /joint_states) lo que gritan los encoders de tus motores (Rozum y Dynamixel). Cada vez que detecta información nueva, dispara el callback que actualiza q_current_
+
+- current_pose_service_ (rclcpp::Service<manipulator_msgs::srv::GetCurrentPose>::SharedPtr): Es la ventanilla de atención al cliente de este nodo. Se queda inactivo esperando a que otro programa (como tu interfaz de guardado de puntos de trayectoria) "llame a la puerta" y pregunte: "Oye, ¿dónde está el brazo ahora mismo?". Al recibir la petición, este servicio toma el cálculo del fk_solver_ y responde con las coordenadas 3D exactas.
