@@ -32,7 +32,6 @@ private:
     // Variables de configuración
     double joint_velocity_limit_;
     std::vector<std::string> joint_names_;
-    int n_joints_;
 
     // Elementos KDL
     KDL::Chain chain_;

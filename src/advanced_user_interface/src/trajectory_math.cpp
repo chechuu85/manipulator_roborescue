@@ -1,4 +1,4 @@
-#include "advanced_user_manual/trajectory_math.hpp" 
+#include "advanced_user_interface/trajectory_math.hpp" 
 
 // Función para buscar y extraer una matriz 4x4 específica del YAML
 Eigen::Matrix4d ParsePoseMatrix(const std::string &key, const std::string &poses_yaml_path)

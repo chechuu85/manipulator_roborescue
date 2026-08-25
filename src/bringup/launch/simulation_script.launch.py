@@ -119,7 +119,7 @@ def generate_launch_description():
     # TRAJECTORY PLANNING NODE
     # ==========================================================
     trajectory_planning_node = Node(
-        package="advanced_user_manual",  
+        package="advanced_user_interface",  
         executable="trajectoryPlanning",     
         name="trajectory_planning_node",      
         output="screen",

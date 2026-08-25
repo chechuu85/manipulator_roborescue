@@ -18,7 +18,8 @@ AdapterToSimulationNode::AdapterToSimulationNode() : Node("adapter_to_simulation
     timer_ = this->create_wall_timer(std::chrono::milliseconds(timer_period_ms), 
              std::bind(&AdapterToSimulationNode::timer_callback, this));
     
-    // Define los nombres exactos de los joints declarados en tu manipulador.urdf.xacro
+    // Define los nombres exactos de los joints declarados en tu manipulador.urdf.xacro. 
+    // No debería estar hardcodeado. ***CAMBIAR*** 
     joint_state_msg_.header.frame_id = "base_link";
     joint_state_msg_.name = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "joint7", "joint8"};
 

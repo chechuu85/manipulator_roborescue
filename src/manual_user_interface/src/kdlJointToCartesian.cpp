@@ -5,7 +5,7 @@
 // ==========================================
 KdlJointToCartesian::KdlJointToCartesian() : Node("kdl_joint_to_cartesian")
 {
-  joint_names_ = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
+  //joint_names_ = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
 
   if (!this->initKdl()) {
     RCLCPP_ERROR(this->get_logger(), "No se pudo inicializar KDL para el servidor de pose actual.");
@@ -53,6 +53,18 @@ bool KdlJointToCartesian::initKdl()
   q_current_.resize(chain_.getNrOfJoints());
   KDL::SetToZero(q_current_);
   fk_solver_ = std::make_shared<KDL::ChainFkSolverPos_recursive>(chain_);
+
+  // Extracción dinámicia de los nombres de las articulaciones
+  joint_names_.clear();
+  for (unsigned int i = 0; i < chain_.getNrOfSegments(); ++i) {
+    const KDL::Joint& joint = chain_.getSegment(i).getJoint();
+    
+    // Filtramos para guardar solo las articulaciones móviles (ignorando las fijas)
+    if (joint.getType() != KDL::Joint::None) {
+      joint_names_.push_back(joint.getName());
+    }
+  }
+
   return true;
 }
 

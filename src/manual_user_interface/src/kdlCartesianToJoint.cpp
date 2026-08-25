@@ -9,8 +9,8 @@ KdlCartesianToJoint::KdlCartesianToJoint() : Node("kdl_ik_node")
 
     // Nombres de los joints que participan en la cinemática hasta el TCP (link7)
     // No incluimos joint8 ni joint9 porque son de la garra y no afectan la pose.
-    joint_names_ = { "joint1", "joint2", "joint3", "joint4", "joint5", "joint6" };
-    n_joints_ = static_cast<int>(joint_names_.size());
+    //joint_names_ = { "joint1", "joint2", "joint3", "joint4", "joint5", "joint6" };
+    //n_joints_ = static_cast<int>(joint_names_.size());
 
     // Inicializar KDL y verificar que se ha inicializado correctamente
     if (!this->initKDL()) {
@@ -87,6 +87,16 @@ bool KdlCartesianToJoint::initKDL()
     KDL::SetToZero(joint_planning_positions_);
     next_joint_planning_positions_.resize(chain_.getNrOfJoints());
     KDL::SetToZero(next_joint_planning_positions_);
+
+    joint_names_.clear();
+    for (unsigned int i = 0; i < chain_.getNrOfSegments(); ++i) {
+        const KDL::Joint& joint = chain_.getSegment(i).getJoint();
+        
+        // Filtramos para guardar solo las articulaciones móviles (ignorando las fijas)
+        if (joint.getType() != KDL::Joint::None) {
+        joint_names_.push_back(joint.getName());
+        }
+    }
 
     return true;
 }

@@ -1,5 +1,5 @@
-#include "advanced_user_manual/trajectoryPlanning.hpp"
-#include "advanced_user_manual/trajectory_math.hpp" 
+#include "advanced_user_interface/trajectoryPlanning.hpp"
+#include "advanced_user_interface/trajectory_math.hpp" 
 
 
 // ==========================================
