@@ -123,6 +123,7 @@ def generate_launch_description():
         executable="trajectoryPlanning",     
         name="trajectory_planning_node",      
         output="screen",
+        parameters=[{'timer_period_ms': sampling_rate}] 
     )
 
     #===========================================================

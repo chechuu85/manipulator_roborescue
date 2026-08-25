@@ -14,6 +14,7 @@ find_package(Eigen3 REQUIRED)
 find_package(manipulator_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -34,8 +35,8 @@ target_include_directories(trajectory_math PUBLIC
 )
 
 # Enlazar Eigen3 a tu librería.
-target_link_libraries(trajectory_math Eigen3::Eigen)
-ament_target_dependencies(trajectory_math tf2 yaml-cpp)
+target_link_libraries(trajectory_math Eigen3::Eigen yaml-cpp)
+ament_target_dependencies(trajectory_math tf2 geometry_msgs)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -55,13 +56,18 @@ include_directories(
 
 add_executable(trajectoryPlanning src/trajectoryPlanning.cpp)
 
-target_link_libraries(trajectoryPlanning trajectory_math)
+target_link_libraries(trajectoryPlanning trajectory_math yaml-cpp Eigen3::Eigen)
 
-install(TARGETS
-  trajectory_math
-  trajectoryPlanning
-  DESTINATION lib/${PROJECT_NAME})
+install(TARGETS trajectory_math
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
 
-ament_target_dependencies(trajectoryPlanning rclcpp geometry_msgs std_msgs Eigen3 manipulator_msgs)
+install(TARGETS trajectoryPlanning
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+ament_target_dependencies(trajectoryPlanning rclcpp geometry_msgs std_msgs manipulator_msgs ament_index_cpp)
 
 ament_package()

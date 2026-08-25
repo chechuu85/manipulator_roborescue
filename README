@@ -34,3 +34,13 @@ replantearse lo de crear nodos que controlen qué topics tienen la prioridad en 
 
 instalar esta librería si no la tengo
 sudo apt install libyaml-cpp-dev
+
+mirar pagína web para lo de moveit:
+https://moveit.picknik.ai/main/doc/tutorials/getting_started/getting_started.html
+
+
+/**
+* @brief Convierte un mensaje HiperJointState en un punto de trayectoria estándar.
+* @param msg Puntero compartido al mensaje entrante.
+* @return trajectory_msgs::msg::JointTrajectoryPoint Punto listo para ser insertado.
+*/

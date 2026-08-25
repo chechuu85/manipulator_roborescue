@@ -10,7 +10,7 @@ AdapterToSimulationNode::AdapterToSimulationNode() : Node("adapter_to_simulation
     this->get_parameter("timer_period_ms", timer_period_ms);
 
     // Suscriptor al teclado o estado de motores
-    sub_articular_ = this->create_subscription<sensor_msgs::msg::JointState>(
+    sub_articular_ = this->create_subscription<manipulator_msgs::msg::HiperJointState>(
         "/kdl_articular", 10, std::bind(&AdapterToSimulationNode::callback, this, std::placeholders::_1));
 
     // Publicador estándar que exige ROS2 / Foxglove para animar el URDF
@@ -44,40 +44,98 @@ AdapterToSimulationNode::~AdapterToSimulationNode(){
 // INTERRUPCIONES
 // ==========================================
 // Recolecta los datos 
-void AdapterToSimulationNode::callback(const sensor_msgs::msg::JointState::SharedPtr msg) {
+void AdapterToSimulationNode::callback(const manipulator_msgs::msg::HiperJointState::SharedPtr msg) {
+    // Obtenemos el tamaño real del mensaje
+    size_t pos_size = msg->joint_state_command.position.size();
+    size_t vel_size = msg->joint_state_command.velocity.size();
 
-    velocidades_actuales_[0] = msg->velocity[0];
-    velocidades_actuales_[1] = msg->velocity[1];
-    velocidades_actuales_[2] = msg->velocity[2];
-    
-    velocidades_actuales_[3] = msg->velocity[3];
-    velocidades_actuales_[4] = msg->velocity[4];
-    velocidades_actuales_[5] = msg->velocity[5];
-    velocidades_actuales_[6] = msg->velocity[6];
-    velocidades_actuales_[7] = msg->velocity[7];
+    // En modo trayectoria no se mueven los motores de las garras
+    if (pos_size < 6) {
+        RCLCPP_WARN(this->get_logger(), "Datos insuficientes: %zu. Se requieren al menos 6.", pos_size);
+        return;
+    }
+
+    if (msg->command_info == "FIRST" || msg->command_info == "RECORDING") {
+        
+        if (msg->command_info == "FIRST") {
+            RCLCPP_INFO(this->get_logger(), "[START] Trayectoria iniciada. Comandos manuales bloqueados.");
+        }
+        
+        // Bloqueamos modo manual y actualizamos la pose objetivo al instante
+        current_mode_ = RobotMode::EXECUTING;
+        
+        for (size_t i = 0; i < 8; i++) {
+            // Si el índice existe en el mensaje, lo copiamos. Si no, forzamos 0.0
+            posiciones_actuales_[i] = (i < pos_size) ? msg->joint_state_command.position[i] : 0.0;
+            velocidades_actuales_[i] = (i < vel_size) ? msg->joint_state_command.velocity[i] : 0.0;
+        }
+
+    } else if (msg->command_info == "LAST") {
+        
+        RCLCPP_INFO(this->get_logger(), "[END] Último punto recibido. Control manual DESBLOQUEADO.");
+        current_mode_ = RobotMode::MANUAL;
+        
+        for (size_t i = 0; i < 8; i++) {
+            posiciones_actuales_[i] = (i < pos_size) ? msg->joint_state_command.position[i] : 0.0;
+            velocidades_actuales_[i] = (i < vel_size) ? msg->joint_state_command.velocity[i] : 0.0;
+        }
+
+    } else if (msg->command_info == "MANUAL" && current_mode_ == RobotMode::MANUAL) {
+        // En modo manual se controlan todos los motores
+        if (msg->joint_state_command.velocity.size() >= 8) {
+            for (size_t i = 0; i < 8; i++) {
+                velocidades_actuales_[i] = msg->joint_state_command.velocity[i];
+            }
+        }
+    }
 }
 
 // Envia los datos 
 void AdapterToSimulationNode::timer_callback() {
-    
     auto ahora = this->now();
     joint_state_msg_.header.stamp = ahora;
 
-    // Calcular el diferencial de tiempo real
     double dt = (ahora - ultimo_tiempo_).seconds();
     ultimo_tiempo_ = ahora; 
 
-    // Calcular la posición 
-    for (size_t i = 0; i < 8; i++) {
-        joint_state_msg_.velocity[i] = velocidades_actuales_[i];
-
-        // Posición actual = Posición anterior + (Velocidad * Variación de tiempo)
-        posiciones_actuales_[i] += joint_state_msg_.velocity[i] * dt;
-        joint_state_msg_.position[i] = posiciones_actuales_[i];
+    if (current_mode_ == RobotMode::EXECUTING) {
+        // Modo Streaming: Pasamos directamente la última posición recibida de la trayectoria
+        for (size_t i = 0; i < 8; i++) {
+            joint_state_msg_.position[i] = posiciones_actuales_[i];
+            joint_state_msg_.velocity[i] = velocidades_actuales_[i];
+        }
+    } 
+    else if (current_mode_ == RobotMode::MANUAL) {
+        // Modo Integración: Calculamos posición en base a la velocidad del mando
+        for (size_t i = 0; i < 8; i++) {
+            joint_state_msg_.velocity[i] = velocidades_actuales_[i];
+            posiciones_actuales_[i] += velocidades_actuales_[i] * dt;
+            joint_state_msg_.position[i] = posiciones_actuales_[i];
+        }
     }
 
-    // Publicamos el estado estándar para que el robot_state_publisher lo procese
     pub_joint_states_->publish(joint_state_msg_);
+}
+
+
+// ==========================================
+// FUNCIONES AUXILIARES
+// ==========================================
+trajectory_msgs::msg::JointTrajectoryPoint AdapterToSimulationNode::create_trajectory_point(
+    const manipulator_msgs::msg::HiperJointState::SharedPtr msg) 
+{
+    trajectory_msgs::msg::JointTrajectoryPoint point;
+    
+    // Redimensionamos los arrays basándonos en los 8 joints del URDF
+    point.positions.resize(8);
+    point.velocities.resize(8);
+    
+    for (size_t i = 0; i < 8; i++) {
+        point.positions[i] = msg->joint_state_command.position[i]; 
+        point.velocities[i] = msg->joint_state_command.velocity[i];
+    }
+    
+    return point;
 }
 
 // ==========================================

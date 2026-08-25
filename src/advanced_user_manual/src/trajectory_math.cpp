@@ -1,27 +1,75 @@
 #include "advanced_user_manual/trajectory_math.hpp" 
 
-Eigen::Matrix4d ParsePoseMatrix(const YAML::Node &root, const std::string &key)
+// Función para buscar y extraer una matriz 4x4 específica del YAML
+Eigen::Matrix4d ParsePoseMatrix(const std::string &key, const std::string &poses_yaml_path)
 {
+    // Leemos el archivo yaml:
+    YAML::Node root = YAML::LoadFile(poses_yaml_path);
+
+    // Comprueba que la clave existe y es una lista (secuencia) de 4 elementos
     if (!root[key] || !root[key].IsSequence() || root[key].size() != 4)
     {
         throw std::runtime_error("YAML key '" + key + "' must be a 4x4 matrix sequence");
     }
 
     Eigen::Matrix4d pose;
+    // Recorre las 4 filas
     for (int row = 0; row < 4; ++row)
     {
         const YAML::Node row_node = root[key][row];
+
+        // Comprueba que cada fila sea también una lista de 4 elementos
         if (!row_node.IsSequence() || row_node.size() != 4)
         {
             throw std::runtime_error("YAML key '" + key + "' must contain rows of length 4");
         }
+        // Recorre las 4 columnas de la fila actual
         for (int col = 0; col < 4; ++col)
         {
+            // Convierte el texto del YAML a un número decimal (double) y lo guarda en la matriz
             pose(row, col) = row_node[col].as<double>();
         }
     }
 
     return pose;
+}
+
+// Función para añadir (o sobreescribir) una matriz 4x4 en un nodo YAML
+void AddPoseMatrix(const std::string &key, const Eigen::Matrix4d &pose, const std::string &poses_yaml_path)
+{
+    // Leemos el archivo yaml:
+    YAML::Node root = YAML::LoadFile(poses_yaml_path);
+
+    // Creamos un nuevo nodo vacío que actuará como la matriz completa
+    YAML::Node matrix_node;
+    
+    // Recorremos las 4 filas de nuestra matriz Eigen
+    for (int row = 0; row < 4; ++row)
+    {
+        // Creamos un nodo para la fila actual
+        YAML::Node row_node; 
+        row_node.SetStyle(YAML::EmitterStyle::Flow);
+
+        // Recorremos las 4 columnas
+        for (int col = 0; col < 4; ++col)
+        {
+            // .push_back() convierte automáticamente el nodo en una lista (secuencia) y añade el valor decimal al final de la lista
+            row_node.push_back(pose(row, col));
+        }
+
+        // Añadimos la fila completa a nuestra matriz general
+        matrix_node.push_back(row_node);
+    }
+
+    // Asignamos la matriz completa al nodo principal usando la clave solicitada. Si existe se sobreescribe
+    root[key] = matrix_node;
+
+    // Guardamos el nodo 'root' que acabamos de modificar
+    std::ofstream fout(poses_yaml_path);
+    fout << root; 
+    fout.close();
+        
+    
 }
 
 tf2::Quaternion MuliplyQuaternions(const tf2::Quaternion &q1, const tf2::Quaternion &q2)
@@ -72,6 +120,39 @@ tf2::Quaternion rot2Quat(const Eigen::Matrix3d &R, int m)
     }
 
     return tf2::Quaternion(x, y, z, w);
+}
+
+Eigen::Matrix4d PoseToMatrix(const geometry_msgs::msg::Pose& pose)
+{
+    // 1. Creamos la matriz 4x4 inicializada como matriz identidad
+    Eigen::Matrix4d pose_matrix = Eigen::Matrix4d::Identity();
+
+    // 2. Extraemos el cuaternio del mensaje Pose y lo pasamos al formato de tf2
+    tf2::Quaternion q(
+        pose.orientation.x,
+        pose.orientation.y,
+        pose.orientation.z,
+        pose.orientation.w
+    );
+
+    // 3. Convertimos el cuaternio a matriz de rotación 3x3 usando tf2
+    tf2::Matrix3x3 rot_matrix(q);
+
+    // 4. Copiamos la rotación (3x3) al bloque superior izquierdo de nuestra matriz 4x4
+    for (int row = 0; row < 3; ++row)
+    {
+        for (int col = 0; col < 3; ++col)
+        {
+            pose_matrix(row, col) = rot_matrix[row][col];
+        }
+    }
+
+    // 5. Extraemos la posición directamente del mensaje Pose a la última columna
+    pose_matrix(0, 3) = pose.position.x;
+    pose_matrix(1, 3) = pose.position.y;
+    pose_matrix(2, 3) = pose.position.z;
+
+    return pose_matrix;
 }
 
 std::pair<tf2::Vector3, tf2::Quaternion> PoseInterpolation(
@@ -152,9 +233,24 @@ std::pair<tf2::Vector3, tf2::Quaternion> ComputeNextCartesianPose(
             tf2::Vector3 v12(q12.x(), q12.y(), q12.z());
 
             double theta01 = 2 * std::acos( w01 );
-            tf2::Vector3 n01 = v01 / ( std::sin( theta01/2 ) );
+            //tf2::Vector3 n01 = v01 / ( std::sin( theta01/2 ) );
+            double sin_half_theta01 = std::sin(theta01 / 2.0);
+            tf2::Vector3 n01;
+            if (std::abs(sin_half_theta01) < 1e-6) {
+                n01 = tf2::Vector3(1.0, 0.0, 0.0); // Eje arbitrario, la rotación será 0 de todos modos
+            } else {
+                n01 = v01 / sin_half_theta01;
+            }
+
             double theta12 = 2 * std::acos( w12 );
-            tf2::Vector3 n12 = v12 / ( std::sin( theta12/2 ) );
+            //tf2::Vector3 n12 = v12 / ( std::sin( theta12/2 ) );
+            double sin_half_theta12 = std::sin(theta12 / 2.0);
+            tf2::Vector3 n12;
+            if (std::abs(sin_half_theta12) < 1e-6) {
+                n12 = tf2::Vector3(1.0, 0.0, 0.0); // Eje arbitrario, evita el NaN
+            } else {
+                n12 = v12 / sin_half_theta12;
+            }
             
             double theta_k1 = ( -std::pow((tau - t), 2) / (4*tau*T) ) * theta01 ;
             double theta_k2 = ( std::pow((tau + t), 2) / (4*tau*T) ) * theta12;
@@ -169,6 +265,12 @@ std::pair<tf2::Vector3, tf2::Quaternion> ComputeNextCartesianPose(
 
             tf2::Quaternion q1k1 = MuliplyQuaternions(q1, qk1);
             q_interp = MuliplyQuaternions(q1k1, qk2);
+
+            // Mostrar prints cuando algo no funcione
+            // printf("q1k1: x = %.4f, y = %.4f, z = %.4f, w = %.4f\n", 
+            // q1k1.x(), q1k1.y(), q1k1.z(), q1k1.w());
+            // printf("qk2: x = %.4f, y = %.4f, z = %.4f, w = %.4f\n", 
+            // qk2.x(), qk2.y(), qk2.z(), qk2.w());
 
             // calcular posición
             Eigen::Vector3d P0 = pose_0.block<3,1>(0,3);

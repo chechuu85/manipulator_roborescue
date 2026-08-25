@@ -1,0 +1,2 @@
+string command_info
+sensor_msgs/JointState joint_state_command

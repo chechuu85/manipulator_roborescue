@@ -9,6 +9,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -30,8 +32,11 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DinamixelMotorData.msg"
   "msg/ManipulatorMotorStage.msg"
   "msg/HiperTwist.msg"
+  "msg/HiperPose.msg"
+  "msg/HiperJointState.msg"
   "srv/GetCurrentPose.srv"
   DEPENDENCIES geometry_msgs
+  DEPENDENCIES sensor_msgs
 )
 
 ament_package()

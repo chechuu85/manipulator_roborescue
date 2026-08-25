@@ -20,13 +20,15 @@ KdlCartesianToJoint::KdlCartesianToJoint() : Node("kdl_ik_node")
 
     // Crear suscripciones y publicadores
     sub_js_robot = this->create_subscription<sensor_msgs::msg::JointState>(
-        "/joint_states", 10, std::bind(&KdlCartesianToJoint::jointStateCallback, this, std::placeholders::_1));
+        "/joint_states", 10, std::bind(&KdlCartesianToJoint::robotJointStateCallback, this, std::placeholders::_1));
     sub_twist_input_ = this->create_subscription<manipulator_msgs::msg::HiperTwist>(
         "/input_cartesian", 10, std::bind(&KdlCartesianToJoint::twistCallback, this, std::placeholders::_1));
     sub_js_input_ = this->create_subscription<sensor_msgs::msg::JointState>(
         "/input_articular", 10, std::bind(&KdlCartesianToJoint::jStateCallback, this, std::placeholders::_1));
+    sub_planing_pose_input_ = this->create_subscription<manipulator_msgs::msg::HiperPose>(
+        "/planning_pose", 10, std::bind(&KdlCartesianToJoint::poseCallback, this, std::placeholders::_1));
 
-    pub_cmd_ = this->create_publisher<sensor_msgs::msg::JointState>("/kdl_articular", 10);
+    pub_cmd_ = this->create_publisher<manipulator_msgs::msg::HiperJointState>("/kdl_articular", 10);
 
     RCLCPP_INFO(this->get_logger(), "Nodo KDL (Cartesiano -> Articular) inicializado correctamente.");
 }
@@ -76,13 +78,84 @@ bool KdlCartesianToJoint::initKDL()
     Wts(5, 5) = 0.1;  // rot z
     ik_vel_solver_->setWeightTS(Wts);
 
+    // Crear el solver de posición IK (Newton-Raphson) inyectando los dos anteriores
+    ik_pos_solver_ = std::make_shared<KDL::ChainIkSolverPos_NR>(
+        chain_, *fk_solver_, *ik_vel_solver_, 100, 1e-6);
+
+    // Variables para crear trayectoria 
+    joint_planning_positions_.resize(chain_.getNrOfJoints());
+    KDL::SetToZero(joint_planning_positions_);
+    next_joint_planning_positions_.resize(chain_.getNrOfJoints());
+    KDL::SetToZero(next_joint_planning_positions_);
+
     return true;
 }
 
 // ==========================================
 // INTERRUPCIONES
 // ==========================================
-void KdlCartesianToJoint::jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
+void KdlCartesianToJoint::poseCallback(const manipulator_msgs::msg::HiperPose::SharedPtr msg)
+{
+    // Imprimir el comando (recordando usar .c_str() para el std::string)
+        // RCLCPP_INFO(this->get_logger(), "=== Nuevo Comando HiperPose ===");
+        // RCLCPP_INFO(this->get_logger(), "Comando: %s", msg->command_info.c_str());
+
+        // // Imprimir la posición (X, Y, Z) con 4 decimales de precisión
+        // RCLCPP_INFO(this->get_logger(), "Posicion    [X: %.4f, Y: %.4f, Z: %.4f]", 
+        //             msg->pose_command.position.x, 
+        //             msg->pose_command.position.y, 
+        //             msg->pose_command.position.z);
+
+        // // Imprimir la orientación en cuaterniones (X, Y, Z, W) con 4 decimales
+        // RCLCPP_INFO(this->get_logger(), "Orientacion [X: %.4f, Y: %.4f, Z: %.4f, W: %.4f]", 
+        //             msg->pose_command.orientation.x, 
+        //             msg->pose_command.orientation.y, 
+        //             msg->pose_command.orientation.z, 
+        //             msg->pose_command.orientation.w);
+    //
+    // Mostrar función del mensaje
+    joint_planning_positions_ = (msg->command_info == "FIRST") ? q_current_ : next_joint_planning_positions_;
+
+    const KDL::Frame desired_ee_pose(
+        KDL::Rotation::Quaternion(
+            msg->pose_command.orientation.x, 
+            msg->pose_command.orientation.y, 
+            msg->pose_command.orientation.z, 
+            msg->pose_command.orientation.w
+        ),
+        KDL::Vector(
+            msg->pose_command.position.x, 
+            msg->pose_command.position.y, 
+            msg->pose_command.position.z
+        )
+    );
+
+    if (ik_pos_solver_->CartToJnt(joint_planning_positions_, desired_ee_pose, next_joint_planning_positions_) < 0) { 
+            RCLCPP_WARN(this->get_logger(), "Error: IK falló al calcular es espacio de estados articular."); 
+            return; 
+        }
+
+    
+    // Se crean datos necesarios y se rellenan huecos para ser publicados
+    manipulator_msgs::msg::HiperJointState joint_publish;
+    joint_publish.joint_state_command.position.resize(chain_.getNrOfJoints());
+    joint_publish.joint_state_command.velocity.resize(chain_.getNrOfJoints());
+
+    // Rellenan las posiciones
+    std::memcpy(
+        joint_publish.joint_state_command.position.data(), 
+        next_joint_planning_positions_.data.data(),
+        joint_publish.joint_state_command.position.size() * sizeof(double)
+    );
+    // Se rellena velocidades con 0 para que no tengan basura
+    std::fill(joint_publish.joint_state_command.velocity.begin(), joint_publish.joint_state_command.velocity.end(), 0.0);
+
+    // Escribe mensaje necesario 
+    joint_publish.command_info = (msg->command_info == "FIRST") ? "FIRST" : ((msg->command_info == "LAST") ? "LAST" : "RECORDING");
+    pub_cmd_-> publish(joint_publish);
+}
+
+void KdlCartesianToJoint::robotJointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 {   
     // Actualizar las posiciones articulares leyendo por nombre para evitar problemas de índices
     for (unsigned int i = 0; i < chain_.getNrOfJoints(); ++i) {
@@ -95,9 +168,17 @@ void KdlCartesianToJoint::jointStateCallback(const sensor_msgs::msg::JointState:
     }
 }
 
- void KdlCartesianToJoint::jStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg){
+void KdlCartesianToJoint::jStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg){
     // Cambiar el topic por donde se publican los datos 
-    pub_cmd_->publish(*msg);
+    manipulator_msgs::msg::HiperJointState cmd_msg;
+    
+    cmd_msg.command_info = "MANUAL";
+    cmd_msg.joint_state_command = *msg;
+
+    cmd_msg.joint_state_command.position.resize(8, 0.0);
+    cmd_msg.joint_state_command.velocity.resize(8, 0.0);
+
+    pub_cmd_->publish(cmd_msg);
  }
 
 void KdlCartesianToJoint::twistCallback(const manipulator_msgs::msg::HiperTwist::SharedPtr msg)
@@ -114,8 +195,10 @@ void KdlCartesianToJoint::twistCallback(const manipulator_msgs::msg::HiperTwist:
     KDL::JntArray q_dot(chain_.getNrOfJoints());  // Dimensiona contenedor para velocidades articulares (q_dot) de cinemática inversa
 
     // Inicializamos el contenido del mensaje a publicar
-    auto cmd_msg = sensor_msgs::msg::JointState();
-    cmd_msg.velocity.resize(8, 0.0);
+    manipulator_msgs::msg::HiperJointState cmd_msg;
+
+    cmd_msg.joint_state_command.position.resize(8, 0.0);
+    cmd_msg.joint_state_command.velocity.resize(8, 0.0);
 
 
     if (msg->command_info == "TCP") {
@@ -142,12 +225,14 @@ void KdlCartesianToJoint::twistCallback(const manipulator_msgs::msg::HiperTwist:
 
     // Generar saturación
     for (unsigned int i = 0; i < chain_.getNrOfJoints(); ++i) {        
-        cmd_msg.velocity[i] = std::clamp(q_dot(i), -joint_velocity_limit_, joint_velocity_limit_);
+        cmd_msg.joint_state_command.velocity[i] = std::clamp(q_dot(i), -joint_velocity_limit_, joint_velocity_limit_);
     }
     
     // Control de velocidad de la garra 
-    cmd_msg.velocity[6] = msg->gripper;
-    cmd_msg.velocity[7] = -msg->gripper;
+    cmd_msg.joint_state_command.velocity[6] = msg->gripper;
+    cmd_msg.joint_state_command.velocity[7] = -msg->gripper;
+
+    cmd_msg.command_info = "MANUAL";
 
     pub_cmd_->publish(cmd_msg);
 }

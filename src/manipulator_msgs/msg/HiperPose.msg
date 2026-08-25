@@ -1,0 +1,2 @@
+string command_info
+geometry_msgs/Pose pose_command

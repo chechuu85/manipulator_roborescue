@@ -15,6 +15,7 @@ find_package(SDL2 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(kdl_parser REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(trajectory_msgs REQUIRED)
 
 #find_package(SDL2_ttf REQUIRED)
 # uncomment the following section in order to fill in
@@ -63,7 +64,7 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME})
 
 ament_target_dependencies(keyboard rclcpp manipulator_msgs sensor_msgs geometry_msgs std_msgs)
-ament_target_dependencies(adapterToSimulation rclcpp manipulator_msgs sensor_msgs)
+ament_target_dependencies(adapterToSimulation rclcpp manipulator_msgs sensor_msgs trajectory_msgs)
 ament_target_dependencies(kdlCartesianToJoint rclcpp manipulator_msgs sensor_msgs geometry_msgs kdl_parser)
 ament_target_dependencies(kdlJointToCartesian rclcpp manipulator_msgs sensor_msgs geometry_msgs kdl_parser)
 
