@@ -7,11 +7,6 @@ KdlCartesianToJoint::KdlCartesianToJoint() : Node("kdl_ik_node")
 {
     joint_velocity_limit_ = 1.0;
 
-    // Nombres de los joints que participan en la cinemática hasta el TCP (link7)
-    // No incluimos joint8 ni joint9 porque son de la garra y no afectan la pose.
-    //joint_names_ = { "joint1", "joint2", "joint3", "joint4", "joint5", "joint6" };
-    //n_joints_ = static_cast<int>(joint_names_.size());
-
     // Inicializar KDL y verificar que se ha inicializado correctamente
     if (!this->initKDL()) {
         RCLCPP_ERROR(this->get_logger(), "No se pudo inicializar KDL. Abortando.");
@@ -88,6 +83,7 @@ bool KdlCartesianToJoint::initKDL()
     next_joint_planning_positions_.resize(chain_.getNrOfJoints());
     KDL::SetToZero(next_joint_planning_positions_);
 
+    // Guardamos nombres del archivo .xacro
     joint_names_.clear();
     for (unsigned int i = 0; i < chain_.getNrOfSegments(); ++i) {
         const KDL::Joint& joint = chain_.getSegment(i).getJoint();
@@ -106,26 +102,11 @@ bool KdlCartesianToJoint::initKDL()
 // ==========================================
 void KdlCartesianToJoint::poseCallback(const manipulator_msgs::msg::HiperPose::SharedPtr msg)
 {
-    // Imprimir el comando (recordando usar .c_str() para el std::string)
-        // RCLCPP_INFO(this->get_logger(), "=== Nuevo Comando HiperPose ===");
-        // RCLCPP_INFO(this->get_logger(), "Comando: %s", msg->command_info.c_str());
-
-        // // Imprimir la posición (X, Y, Z) con 4 decimales de precisión
-        // RCLCPP_INFO(this->get_logger(), "Posicion    [X: %.4f, Y: %.4f, Z: %.4f]", 
-        //             msg->pose_command.position.x, 
-        //             msg->pose_command.position.y, 
-        //             msg->pose_command.position.z);
-
-        // // Imprimir la orientación en cuaterniones (X, Y, Z, W) con 4 decimales
-        // RCLCPP_INFO(this->get_logger(), "Orientacion [X: %.4f, Y: %.4f, Z: %.4f, W: %.4f]", 
-        //             msg->pose_command.orientation.x, 
-        //             msg->pose_command.orientation.y, 
-        //             msg->pose_command.orientation.z, 
-        //             msg->pose_command.orientation.w);
-    //
-    // Mostrar función del mensaje
+    
+    // Obtener posición anterior según mensaje obtenido 
     joint_planning_positions_ = (msg->command_info == "FIRST") ? q_current_ : next_joint_planning_positions_;
 
+    // Obtener posición deseada del mensaje 
     const KDL::Frame desired_ee_pose(
         KDL::Rotation::Quaternion(
             msg->pose_command.orientation.x, 
@@ -140,6 +121,7 @@ void KdlCartesianToJoint::poseCallback(const manipulator_msgs::msg::HiperPose::S
         )
     );
 
+    // Calcular espacio articular
     if (ik_pos_solver_->CartToJnt(joint_planning_positions_, desired_ee_pose, next_joint_planning_positions_) < 0) { 
             RCLCPP_WARN(this->get_logger(), "Error: IK falló al calcular es espacio de estados articular."); 
             return; 
@@ -182,9 +164,11 @@ void KdlCartesianToJoint::jStateCallback(const sensor_msgs::msg::JointState::Sha
     // Cambiar el topic por donde se publican los datos 
     manipulator_msgs::msg::HiperJointState cmd_msg;
     
+    // Avisa que es un comando manual
     cmd_msg.command_info = "MANUAL";
     cmd_msg.joint_state_command = *msg;
 
+    // Se asegura que el array es de 8 elementos para no causar daños en el siguiente nodo
     cmd_msg.joint_state_command.position.resize(8, 0.0);
     cmd_msg.joint_state_command.velocity.resize(8, 0.0);
 

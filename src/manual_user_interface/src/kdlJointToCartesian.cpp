@@ -5,8 +5,6 @@
 // ==========================================
 KdlJointToCartesian::KdlJointToCartesian() : Node("kdl_joint_to_cartesian")
 {
-  //joint_names_ = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
-
   if (!this->initKdl()) {
     RCLCPP_ERROR(this->get_logger(), "No se pudo inicializar KDL para el servidor de pose actual.");
     throw std::runtime_error("KDL init failed");
@@ -50,6 +48,7 @@ bool KdlJointToCartesian::initKdl()
     return false;
   }
 
+  // Obtenemos el solver de la cinemática directa 
   q_current_.resize(chain_.getNrOfJoints());
   KDL::SetToZero(q_current_);
   fk_solver_ = std::make_shared<KDL::ChainFkSolverPos_recursive>(chain_);

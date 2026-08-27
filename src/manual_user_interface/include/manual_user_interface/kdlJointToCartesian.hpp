@@ -34,11 +34,13 @@ private:
             // (void)request_header;
             // (void)request;
 
+  // Variables calcular cadena 
   std::vector<std::string> joint_names_;
   KDL::Chain chain_;
   KDL::JntArray q_current_;
   std::shared_ptr<KDL::ChainFkSolverPos_recursive> fk_solver_;
 
+  // Subscriptor y servicio
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_states_sub_;
   rclcpp::Service<manipulator_msgs::srv::GetCurrentPose>::SharedPtr current_pose_service_;
 };
