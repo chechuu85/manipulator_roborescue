@@ -37,26 +37,65 @@ los modelos simplificados (.glb en collition/) (parte no implementada). Eslabone
 lo que facilita enormemente ajustar las inercias o límites mecánicos de un motor específico sin romper el resto del modelo.
 
 ## api_robot
+El paquete api_robot actúa como la Capa de Abstracción de Hardware (HAL) del sistema. Su propósito central es aislar la complejidad de los protocolos de comunicación físicos (como RS-485, CAN bus o TTL) 
+del resto del ecosistema ROS 2.
+
+Se ha creado un sistema modular permitiendo así que, en un futuro, si se desea cambiar un elemento del manipulador, sea fácilmente intercambiable a nivel de software. 
+
+El sistema desarrollado va creando una serie de clases que engloba a otras clases más elementales. En consecuencia se cuenta con el siguiente esquema modularizado.  
 
 ```mermaid
 graph TD
-    %% Declaramos el subgrafo con un ID corto (ContenedorHW) y su título visual entre corchetes
-    subgraph ContenedorHW ["Hardware del Brazo Manipulador"]
-        direction LR 
+    %% Contenedor Negro Exterior (Caja Principal)
+    subgraph CajaPrincipal ["global_manipulator"]
+
+        %% Contenedor del Brazo (Bloque Superior)
+        subgraph BloqueRojo2 ["robot_arm"]
+            direction LR
+            CajaMorada1["motor_rozum<br>jointX"]
+            CajaMorada2["motor_rozum<br>jointX"]
+            CajaMorada3["motor_rozum<br>jointX"]
+        end
+
+        %% Contenedor de la Pinza (Bloque Inferior)
+        subgraph BloqueRojo1 ["robot_claw"]
+            direction LR
+            CajaAzul1["motor_dinamixel<br>jointX"]
+            CajaAzul2["motor_dinamixel<br>jointX"]
+            CajaAzul3["motor_dinamixel<br>jointX"]
+            CajaAzul4["motor_dinamixel<br>jointX"]
+            CajaAzul5["motor_dinamixel<br>jointX"]
+        end
         
-        %% Cuadrados interiores
-        M1["Motor 1 (Base)<br>Aquí pones tu texto"]
-        M2["Motor 2 (Hombro)<br>Aquí pones tu texto"]
-        D1["Driver Dynamixel/Rozum<br>Texto de configuración"]
-        
-        %% Conexiones internas
-        D1 --> M1
-        D1 --> M2
+        %% Forzamos que el Brazo quede encima de la Pinza
+        BloqueRojo2 ~~~ BloqueRojo1
     end
+
+    %% Estilos contenedores
+    style CajaPrincipal fill:#ffffff,stroke:#000000,stroke-width:3px,color:#000;
+    style BloqueRojo1 fill:#fff5f5,stroke:#ff0000,stroke-width:2px,color:#000;
+    style BloqueRojo2 fill:#fff5f5,stroke:#ff0000,stroke-width:2px,color:#000;
     
-    %% Aplicamos el estilo llamando al ID corto (sin comillas)
-    style ContenedorHW fill:#f4f4f4,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+    %% Estilos motores pinza
+    style CajaAzul1 fill:#f0f8ff,stroke:#00a2ff,stroke-width:2px,color:#000;
+    style CajaAzul2 fill:#f0f8ff,stroke:#00a2ff,stroke-width:2px,color:#000;
+    style CajaAzul3 fill:#f0f8ff,stroke:#00a2ff,stroke-width:2px,color:#000;
+    style CajaAzul4 fill:#f0f8ff,stroke:#00a2ff,stroke-width:2px,color:#000;
+    style CajaAzul5 fill:#f0f8ff,stroke:#00a2ff,stroke-width:2px,color:#000;
+
+    %% Estilos motores brazo
+    style CajaMorada1 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+    style CajaMorada2 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+    style CajaMorada3 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
 ```
+
+Las clases creadas son las siguiente:
+- motor_rozum : clase que cuenta con todas las funciones necesarias para configurar y enviar datos al motor rozum
+- motor_dinamixel : clase que cuenta con todas las funciones necesarias para configurar y enviar datos al motor dinamixel
+- robot_arm : clase que implementa los elementos del manipulador encargados de mover el brazo del manipulador (motores_rozum)
+- robot_claw : clase que implementa los elementos del manipulador encargados de mover la muñeca del manipulador (motores_dinamixel)
+- global_manipulator : clase que reúne todas las partes del manipulador en una sola clase 
+
 
 ## manipulator_msgs 
 Este paquete actúa como la biblioteca de tipos de datos personalizados del sistema. La responsabilidad de manipulator_msgs es definir las estructuras de 
@@ -116,17 +155,18 @@ graph LR
     KIK(("/kdl_ik_node<br/>(manual_user_interface)"))
     A2S(("/adapterToSimulation<br/>(manual_user_interface)"))
     KFK(("/kdl_fk_node<br/>(manual_user_interface)"))
-    RSP(("/robot_state_publisher<br/>(pkg externo)"))
-    FGB(("/foxglove_bridge<br/>(pkg externo)"))
+    RSP(("/robot_state_publisher<br/>(nodo externo)"))
+    FGB(("/foxglove_bridge<br/>(nodo externo)"))
 
     %% Tópicos de ROS 2 (Mensajes)
-    T_IIT[/"/input_instr_trayectory"/]
-    T_PP[/"/planning_pose"/]
-    T_IC[/"/input_cartesian"/]
-    T_IA[/"/input_articular"/]
-    T_KA[/"/kdl_articular"/]
-    T_JS[/"/joint_states"/]
-    T_TF[/"/tf"/]
+    %% Tópicos de ROS 2 con sus tipos de mensaje o características
+    T_IIT[/"/input_instr_trayectory<br/>(std_msgs/String)"/]
+    T_PP[/"/planning_pose<br/>(manipulator_msgs/HiperPose)"/]
+    T_IC[/"/input_cartesian<br/>(manipulator_msgs/HiperTwist)"/]
+    T_IA[/"/input_articular<br/>(sensor_msgs/JointState)"/]
+    T_KA[/"/kdl_articular<br/>(manipulator_msgs/HiperJointState)"/]
+    T_JS[/"/joint_states<br/>(sensor_msgs/JointState)"/]
+    T_TF[/"/tf<br/>(tf2_msgs/TFMessage)"/]
 
     %% Flujo de Pub/Sub desde el Teclado
     KBD --> T_IIT
@@ -173,3 +213,5 @@ graph LR
     class T_IIT,T_PP,T_IC,T_IA,T_KA,T_JS,T_TF topic;
 
 ```
+
+El diagrama contiene el nodo usado junto con el paquete en el cual está contenido y el nombre del topic o servicio que lo conecta junto con el tipo de dato que se traspasa. 
