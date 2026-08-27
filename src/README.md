@@ -129,7 +129,7 @@ exactos debe tener cada motor (espacio articular) para alcanzar una coordenada X
 del efector final (la punta del brazo) en el espacio tridimensional. 
 
 
-## Ejecución del Código
+# Ejecución del Código
 Para ejecutar el código es necesario lanzar el comando ```bash ros2 launch bringup simulation_script.launch.py ``` desde la carpeta workspace. Además se tienen 3 argumentos para controlar 
 el modo de ejecución del robot.
 
