@@ -172,7 +172,7 @@ Entradas: rr_can_interface_t* interface, int hardware_id
 Salidas: void (Constructor)
 Parámetros implícitos usados: iface, motor, id, telemetry_motor
 
-- ~RozumMotor() (Destructor)
+- ~RozumMotor() (Destructor):
 Garantiza un apagado seguro del hardware. Pone el motor en estado pre-operacional para desactivar la fuerza del actuador, libera los recursos de memoria y anula el
 puntero para evitar problemas de punteros colgantes.
 
@@ -193,6 +193,7 @@ Entradas: void
 Salidas: void
 Parámetros implícitos usados: motor
 
+2. Lectura variables 
 - update_cache(): Ejecuta la solicitud de actualización de todos los valores cacheados desde el motor hacia la memoria del ordenador anfitrión.
 
 Entradas: void
@@ -212,6 +213,7 @@ Entradas: void para todas.
 Salidas: void para todas.
 Parámetros implícitos usados: motor, telemetry_motor
 
+3. Control de movimiento
 - set_velocity(): Envía un comando de velocidad al motor. Implementa una lógica de seguridad crítica: si el motor está excediendo los límites de posición (MAX_POSITION o MIN_POSITION)
 y se le ordena moverse en esa dirección, la velocidad se sobreescribe a 0.
 
@@ -225,6 +227,7 @@ Entradas: void
 Salidas: void
 Parámetros implícitos usados: motor, actuation_motor, MAX_POSITION, MIN_POSITION, id
 
+4. Gestión del hardware
 - set_velocity_limits(): Establece el límite de velocidad máxima permitida a nivel de firmware en el controlador del motor.
 
 Entradas: void
@@ -260,6 +263,221 @@ Parámetros implícitos usados: Ninguno activo.
 - const int MAX_POSITION: Límite cinemático superior de seguridad establecido en 200 grados.
 - const int MIN_POSITION: Límite cinemático inferior de seguridad establecido en 0 grados.
 
+
+## robot_arm.hpp / robot_arm.cpp
+
+### Introducción
+
+La clase RozumArm actúa como el orquestador principal para un manipulador robótico de 3 grados de libertad (3-DOF), encapsulando y coordinando tres instancias independientes de la clase RozumMotor. Dentro del ecosistema de ROS 2, esta clase asume el rol de controlador a nivel de grupo articular (Joint Group Controller), exponiendo una interfaz unificada que permite gobernar el brazo completo como una única entidad cinemática en lugar de gestionar actuadores aislados.
+
+El papel fundamental de este componente es garantizar la sincronización temporal en las operaciones de lectura y escritura. En robótica articulada, es imperativo que las consignas de movimiento (velocidad o posición) se apliquen simultáneamente en todas las articulaciones, y que la telemetría refleje el estado del robot en un instante de tiempo cohesivo. Esta clase resuelve este problema centralizando las peticiones de actualización de caché en el bus CAN y distribuyendo los arrays de comandos hacia las estructuras individuales de cada motor.
+
+Además de su función sincronizadora, simplifica significativamente el desarrollo del nodo de ROS 2 de más alto nivel (por ejemplo, un ros2_control hardware interface), ya que proporciona métodos directos (set_positions, read_all_parameters) que operan con arreglos de datos estándar de C++ (std::array), abstrayendo por completo el manejo iterativo de los IDs del hardware, la topología de la red CAN y las rutinas de inicialización de los servos.
+
+
+### Diagrama de Flujo
+
+```mermaid
+graph LR
+
+    %% Estilos personalizados
+    classDef nodeStyle fill:#000000,stroke:#00FF00,stroke-width:3px,color:#FFFFFF;
+    style CajaMorada1 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+    style CajaMorada2 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+    style CajaMorada3 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+
+    subgraph nodeStyle ["RozumArm"]
+        direction LR
+        CajaMorada1["motor_rozum<br>joint0"]
+        CajaMorada2["motor_rozum<br>joint1"]
+        CajaMorada3["motor_rozum<br>joint2"]
+    end
+```
+
+### Arquitectura y funciones principales
+
+1. Inicialización y Destrucción
+- RozumArm(rr_can_interface_t* interface, int id_motor1, int id_motor2, int id_motor3) (Constructor): 
+Inicializa la estructura del brazo robótico. Guarda la referencia a la interfaz CAN e instancia mediante lista de inicialización los tres objetos RozumMotor. Verifica críticamente que el puntero de la interfaz CAN no sea nulo antes de proceder, asegurando la integridad del hardware.
+
+Entradas: rr_can_interface_t* interface, int id_motor1, int id_motor2, int id_motor3
+Salidas: void (Constructor)
+Parámetros implícitos usados: iface, motor1, motor2, motor3
+
+- ~RozumArm() (Destructor):
+Se encarga de la destrucción del objeto. Al no emplear punteros dinámicos para los motores, su cuerpo está vacío; delega la limpieza y el apagado seguro (estado pre-operacional) a los destructores individuales de cada RozumMotor.
+
+Entradas: void
+Salidas: void 
+Parámetros implícitos usados: Destructores de motor1, motor2, motor3
+
+- activate_all():
+Envía la señal de activación (estado operacional) simultáneamente a los tres motores del brazo.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: motor1, motor2, motor3
+
+- setup_telemetry_cache_all(): 
+Configura los registros del bus CAN de los tres actuadores para almacenar en caché sus parámetros críticos (posición, velocidad, corriente, temperatura), optimizando el ancho de banda global.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: motor1, motor2, motor3
+
+- update_cache_all():
+Fuerza una actualización de los valores cacheados desde el hardware hacia la memoria del ordenador para los tres motores simultáneamente. Garantiza coherencia temporal.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: motor1, motor2, motor3
+
+2. Lectura de variables (igual sería interesante poner return en las funciones para jugar variables más cortas)
+- read_all_parameters(), read_positions(), read_velocities(), read_currents(), read_temperatures():
+Familia de funciones de telemetría. Su arquitectura obliga a ejecutar primero update_cache_all() para refrescar los datos en el instante actual, y posteriormente invoca las rutinas de lectura de los tres motores para actualizar las estructuras ROS 2 internas.
+
+Entradas: void (para todas)
+Salidas: void (para todas)
+Parámetros implícitos usados: motor1, motor2, motor3
+
+3. Control de movimiento
+- set_velocities(const std::array<float, 3>& target_velocities):
+Desempaqueta un vector de 3 velocidades y asigna cada valor a la estructura actuation_motor.velocity de su motor correspondiente, para luego invocar la transmisión del comando CAN hacia cada actuador.
+
+Entradas: const std::array<float, 3>& target_velocities
+Salidas: void
+Parámetros implícitos usados: motor1.actuation_motor, motor2.actuation_motor, motor3.actuation_motor
+
+- set_positions(const std::array<float, 3>& target_positions):
+Desempaqueta un vector de 3 posiciones angulares, las enruta a las estructuras individuales de actuación de cada motor y dispara los comandos de movimiento por posición al hardware.
+
+Entradas: const std::array<float, 3>& target_positions
+Salidas: void
+Parámetros implícitos usados: motor1.actuation_motor, motor2.actuation_motor, motor3.actuation_motor
+
+- set_velocity_limits_all():
+Aplica las restricciones cinemáticas de velocidad máxima (definidas internamente en la clase RozumMotor) a todos los eslabones del manipulador.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: motor1, motor2, motor3
+
+### Variables globales
+Los arrays entrantes (std::array<float, 3>) en las funciones set_velocities y set_positions actúan como la pasarela para los Subscribers (comandos de posición y velocidad articular).
+
+La lectura de la telemetría se consolidará en un array/mensaje del tipo JointState o similar en el nodo superior para actuar como Publisher.
+
+1. Interfaces o Librerías Externas:
+- rr_can_interface_t* iface: Puntero global que representa el dongle/interfaz de hardware (ej. USB-CAN) compartido, a través del cual multiplexan los comandos los 3 motores.
+
+2. Variables de motores:
+- RozumMotor motor1: Instancia de control para el eslabón base o articulación 1.
+- RozumMotor motor2: Instancia de control para el eslabón intermedio o articulación 2.
+- RozumMotor motor3: Instancia de control para el eslabón final o articulación 3.
+
+
+
+## robot_claw.hpp / robot_claw.cpp
+
+### Introducción
+La clase DynamixelClaw actúa como un orquestador de nivel intermedio diseñado específicamente para gobernar un actuador final o garra robótica compuesta por cinco servomotores Dynamixel. Su propósito principal es encapsular y coordinar el comportamiento de las cinco instancias individuales de la clase de bajo nivel DinamixelMotor, proporcionando una interfaz unificada y simplificada al controlador principal del robot. Al agrupar las cinemáticas de estos motores (cuyos IDs físicos por defecto están predefinidos como 1, 2, 3, 5 y 12), la clase abstrae la topología de la red RS-485/TTL al nodo superior.
+
+Dentro del sistema robótico de ROS 2, esta clase asume la responsabilidad de maximizar el rendimiento y minimizar la latencia en el bus de comunicaciones. Lo logra explotando intensivamente las capacidades de lectura y escritura síncrona (GroupSyncRead y GroupSyncWrite) del SDK de Dynamixel. En lugar de interrogar o comandar cada motor de forma secuencial, empaqueta las instrucciones y desempaqueta la telemetría en tramas únicas, garantizando que el estado temporal de los 5 grados de libertad (DOF) de la garra se adquiera y actualice de manera estrictamente concurrente.
+
+En cuanto a sus modalidades, la clase hereda la flexibilidad de los motores individuales (pudiendo operar en control de posición o velocidad), pero expone métodos que aplican los cambios a nivel global. Incorpora rutinas de inicialización masiva de límites de hardware y mecanismos de seguridad integrados, como la desactivación automática y simultánea del torque de toda la garra en caso de destrucción del objeto o apagado del nodo.
+
+### Diagrama de Flujo
+```mermaid
+graph LR
+
+    %% Estilos personalizados
+    classDef nodeStyle fill:#000000,stroke:#00FF00,stroke-width:3px,color:#FFFFFF;
+    style CajaMorada1 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+    style CajaMorada2 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+    style CajaMorada3 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+    style CajaMorada4 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+    style CajaMorada5 fill:#f3e5f5,stroke:#9c27b0,stroke-width:3px,color:#000;
+
+
+    subgraph nodeStyle ["DynamixelClaw"]
+        direction LR
+        CajaMorada1["motor_dinamixel<br>joint4"]
+        CajaMorada2["motor_dinamixel<br>joint5"]
+        CajaMorada3["motor_dinamixel<br>joint6"]
+        CajaMorada4["motor_dinamixel<br>joint7"]
+        CajaMorada5["motor_dinamixel<br>joint8"]
+    end
+```
+
+### Arquitectura y funciones principales
+
+1. Inicializadores y destructores
+- DynamixelClaw(dynamixel::PortHandler* port, dynamixel::PacketHandler* packet, uint8_t id1, uint8_t id2, uint8_t id3, uint8_t id5, uint8_t id12):
+Constructor de la clase. Inicializa las 5 instancias de DinamixelMotor con los manejadores de puerto/paquete y asigna los IDs físicos correspondientes a cada eslabón de la garra. Verifica que los punteros de comunicación no sean nulos.
+
+Entradas: dynamixel::PortHandler* port, dynamixel::PacketHandler* packet, uint8_t id1, id2, id3, id5, id12
+Salidas: void
+Parámetros implícitos usados: Variables miembro portHandler, packetHandler y las instancias motor1, motor2, motor3, motor5, motor12.
+
+- ~DynamixelClaw():
+Destructor de la garra. Ejecuta una parada segura retirando el torque de todos los motores antes de liberar la memoria, evitando que la garra mantenga esfuerzo físico al apagar el software.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: Llama a set_torque_all(false).
+
+- set_torque_all(bool state):
+Activa o desactiva la potencia de retención mecánica de los cinco motores secuencialmente llamando a las sub-funciones de cada objeto motor.
+
+Entradas: bool state
+Salidas: void
+Parámetros implícitos usados: motorX.set_torque_state(state) para los 5 motores.
+
+- set_mode_all(char mode):
+Establece la misma modalidad de control ('v' para velocidad, 'p' para posición) para todas las articulaciones de la garra.
+
+Entradas: char mode
+Salidas: void
+Parámetros implícitos usados: motorX.set_mode(mode) para los 5 motores.
+
+2. Lectura de variables síncrona
+- read_all_parameters() / read_positions() / read_velocities() / read_currents() / read_temperatures():
+Familia de funciones de lectura síncrona. Instancian un objeto GroupSyncRead especificando la dirección base (ej. READ_CURRENT_ADDRESS o READ_POSITION_ADDRESS) y el tamaño en bytes, solicitan los datos en un solo paquete por el bus de comunicaciones, y luego ordenan a cada motor que extraiga su información del búfer.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: portHandler, packetHandler. Direcciones de memoria macro (READ_CURRENT_ADDRESS, etc.). Lanza excepción si txRxPacket() falla.
+
+3. Control de movimiento síncrono
+- set_velocities(const std::array<float, 5>& target_velocities):
+Función de comando masivo de velocidad. Asigna el vector de velocidades deseado a la estructura interna de cada motor y utiliza GroupSyncWrite para transmitir los 5 comandos en un único envío por el bus.
+
+Entradas: const std::array<float, 5>& target_velocities
+Salidas: void
+Parámetros implícitos usados: motorX.actuation_motor.velocity, WRITE_VELOCITY_ADDRESS, portHandler, packetHandler.
+
+- set_positions(const std::array<float, 5>& target_positions):
+Función de comando masivo de posición. Distribuye un vector de posiciones a los actuadores individuales y empaqueta la orden conjunta usando escritura síncrona para que las articulaciones de la garra comiencen a moverse de manera simultánea.
+
+Entradas: const std::array<float, 5>& target_positions
+Salidas: void
+Parámetros implícitos usados: motorX.actuation_motor.position, WRITE_POSITION_ADDRESS, portHandler, packetHandler.
+
+4. Gestión de hardware
+- set_limits_all():
+Rutina de configuración de seguridad de hardware. Itera sobre todos los motores ordenándoles que fijen sus límites de posición y velocidad (definidos internamente en DinamixelMotor) directamente en su firmware.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: motorX.set_position_limits(), motorX.set_velocity_limits().
+
+### Variables globales
+
+1. Interfaces:
+
+- dynamixel::PortHandler* portHandler y dynamixel::PacketHandler* packetHandler: Punteros propagados desde el nivel superior del sistema (e.g. el Robot base) y redistribuidos hacia los 5 motores subyacentes.
+
+- DinamixelMotor motor1, motor2, motor3, motor5, motor12: Instancias físicas de la clase dependiente, que manejan la abstracción directa con cada servomotor.
 
 
 
