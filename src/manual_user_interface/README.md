@@ -19,21 +19,48 @@ El nodo actúa como el "cerebro de control manual" del sistema, traduciendo las 
 
 ```mermaid
 graph LR
-    A[/Teclado Físico<br/] -->|SDL2| B((keyboard_node))
-    B -->|sensor_msgs/JointState| C[/input_articular/]
-    B -->|manipulator_msgs/HiperTwist| D[/input_cartesian/]
-    B -->|std_msgs/String| E[/input_instr_trayectory/]
-    
-    classDef node fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff;
+    %% Hardware
+    A[/Teclado Físico<br/>/] 
+
+    %% Contenedor Negro Exterior (El Nodo)
+    subgraph keyboard_node ["keyboard_node"]
+        direction TB
+        %% Cuadrado Naranja
+        Param["Parámetro: timer_period_ms"]
+
+        %% Cuadrado Rojo (Condición)
+        Cond["Condición: input_type == 'keyboard'"]
+        
+        %% Enlace invisible para apilarlos verticalmente de forma limpia
+        Param ~~~ Cond
+    end
+
+    %% Tópicos de Salida
+    C[/input_articular/]
+    D[/input_cartesian/]
+    E[/input_instr_trayectory/]
+
+    %% Conexiones
+    A -->|SDL2| keyboard_node
+    keyboard_node -->|sensor_msgs/JointState| C
+    keyboard_node -->|manipulator_msgs/HiperTwist| D
+    keyboard_node -->|std_msgs/String| E
+
+    %% Estilos de los elementos individuales
     classDef topic fill:#025997,stroke:#fff,stroke-width:1px,color:#fff;
     classDef hw fill:#7f8c8d,stroke:#fff,stroke-width:1px,color:#fff;
-    
-    class B node;
+    classDef param fill:#d35400,stroke:#fff,stroke-width:1px,color:#fff;
+    classDef cond fill:#8b0000,stroke:#fff,stroke-width:1px,color:#fff;
+     
     class C,D,E topic;
     class A hw;
+    class Param param;
+    class Cond cond;
+
+    %% Estilo del Contenedor Exterior (Caja Negra con borde verde)
+    style keyboard_node fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff
+
 ```
-
-
 
 ### Arquitectura y funciones principales
 
@@ -156,33 +183,39 @@ El nodo se suscribe a múltiples topics para recibir las distintas intenciones d
 ### Diagrama de flujo
 ```mermaid
 graph LR
-    %% Definición de estilos
-    classDef node fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff;
-    classDef topic fill:#025997,stroke:#fff,stroke-width:1px,color:#fff;
-    classDef service fill:#8e44ad,stroke:#fff,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
-    classDef param fill:#d35400,stroke:#fff,stroke-width:1px,color:#fff;
-
-    %% Nodos e Interfaces (Texto envuelto en comillas para evitar errores de parseo)
+    %% Tópicos de Entrada
     A[/"/joint_states<br/>(sensor_msgs/JointState)"/]
     B[/"/input_cartesian<br/>(manipulator_msgs/HiperTwist)"/]
     C[/"/input_articular<br/>(sensor_msgs/JointState)"/]
     D[/"/planning_pose<br/>(manipulator_msgs/HiperPose)"/]
-    
-    N(("kdl_ik_node"))
-    
+
+    %% Contenedor Negro Exterior (El Nodo)
+    subgraph kdl_ik_node ["kdl_ik_node"]
+        direction TB
+        %% Cuadrado Naranja (Parámetro)
+        Param["Parámetro: robot_description"]
+    end
+
+    %% Tópico de Salida
     O[/"/kdl_articular<br/>(manipulator_msgs/HiperJointState)"/]
 
-    %% Conexiones
-    A -->|Suscriptor| N
-    B -->|Suscriptor| N
-    C -->|Suscriptor| N
-    D -->|Suscriptor| N
-    N -->|Publicador| O
-    
+    %% Conexiones (Apuntan al contenedor exterior)
+    A -->|Suscriptor| kdl_ik_node
+    B -->|Suscriptor| kdl_ik_node
+    C -->|Suscriptor| kdl_ik_node
+    D -->|Suscriptor| kdl_ik_node
+    kdl_ik_node -->|Publicador| O
+
+    %% Estilos de los elementos individuales
+    classDef topic fill:#025997,stroke:#fff,stroke-width:1px,color:#fff;
+    classDef param fill:#d35400,stroke:#fff,stroke-width:1px,color:#fff;
+   
     %% Aplicación de estilos
-    class N node;
     class A,B,C,D,O topic;
-    class P param;
+    class Param param;
+
+    %% Estilo del Contenedor Exterior (Caja Negra con borde verde)
+    style kdl_ik_node fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff
 ```
 
 ### Arquitectura y funciones principales
@@ -284,26 +317,33 @@ Cuando otro nodo del ecosistema necesita saber la posición cartesiana exacta de
 
 ```mermaid
 graph LR
-    %% Definición de estilos
-    classDef node fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff;
+    %% Tópicos e Interfaces
+    A[/"/joint_states<br/>(sensor_msgs/JointState)"/]
+    C{{"/service_odometry_pose<br/>(manipulator_msgs/GetCurrentPose)"}}
+
+    %% Contenedor Negro Exterior (El Nodo)
+    subgraph kdl_joint_to_cartesian ["kdl_joint_to_cartesian"]
+        direction TB
+        %% Cuadrado Naranja (Parámetro)
+        Param["Parámetro: robot_description"]
+    end
+
+    %% Conexiones (Apuntan al contenedor exterior)
+    A -->|Suscriptor| kdl_joint_to_cartesian
+    kdl_joint_to_cartesian <-->|Servicio Request/Response| C
+    
+    %% Estilos de los elementos individuales
     classDef topic fill:#025997,stroke:#fff,stroke-width:1px,color:#fff;
     classDef service fill:#8e44ad,stroke:#fff,stroke-width:2px,color:#fff,stroke-dasharray: 5 5;
     classDef param fill:#d35400,stroke:#fff,stroke-width:1px,color:#fff;
 
-    %% Nodos e Interfaces (Texto envuelto en comillas para evitar errores de parseo)
-    A[/"/joint_states<br/>(sensor_msgs/JointState)"/]
-    B(("kdl_joint_to_cartesian"))
-    C{{"/service_odometry_pose<br/>(manipulator_msgs/GetCurrentPose)"}}
-
-    %% Conexiones
-    A -->|Suscriptor| B
-    B <-->|Servicio Request/Response| C
-    
     %% Aplicación de estilos
-    class B node;
     class A topic;
     class C service;
-    class D param;
+    class Param param;
+
+    %% Estilo del Contenedor Exterior (Caja Negra con borde verde)
+    style kdl_joint_to_cartesian fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff
 ```
 
 ### Arquitectura y funciones principales
