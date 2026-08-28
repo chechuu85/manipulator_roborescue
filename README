@@ -44,3 +44,50 @@ https://moveit.picknik.ai/main/doc/tutorials/getting_started/getting_started.htm
 * @param msg Puntero compartido al mensaje entrante.
 * @return trajectory_msgs::msg::JointTrajectoryPoint Punto listo para ser insertado.
 */
+
+
+**************** semi importante ****************
+pront código para generar README de nodo:
+
+Eres un ingeniero de software experto en robótica y ROS 2. Tu tarea es generar la documentación técnica detallada para un nodo de ROS 2 basándote en el código que te proporcionaré al final.
+
+Debes mantener un tono técnico, estructurado y preciso. La documentación debe seguir estrictamente la siguiente estructura, utilizando los mismos encabezados y nivel de profundidad:
+
+## [Nombre del archivo .hpp/.cpp o .py]
+
+### Introducción
+Redacta de 2 a 3 párrafos explicando el propósito general del nodo, qué papel juega dentro del sistema robótico y resume sus modalidades o características principales.
+
+### Diagrama de Flujo
+Genera un diagrama de flujo utilizando la sintaxis de mermaid (graph LR).
+
+Representa el hardware externo (si lo hay), el nodo principal como un contenedor negro con bordes verdes, y los tópicos de entrada/salida (Publishers y Subscribers).
+
+Aplica estilos personalizados para diferenciar: tópicos (azul), hardware (gris), parámetros (naranja) y condiciones lógicas importantes (rojo).
+
+### Arquitectura y funciones principales
+Desglosa todas las funciones clave del nodo (constructores, destructores, callbacks de timers o suscriptores, y funciones lógicas). Para cada una, proporciona una breve descripción y obligatoriamente la siguiente lista:
+
+Entradas: [Tipos y nombres de variables, o 'void']
+
+Salidas: [Tipos de retorno, o 'void']
+
+Parámetros implícitos usados: [Variables globales, timers, dependencias de hardware o ROS 2 que la función utiliza directamente]
+
+### Variables globales
+Enumera y explica todas las variables miembro de la clase o variables globales importantes, organizadas en las siguientes subcategorías:
+
+Publicadores, Suscriptores y Temporizadores: (Incluye el tipo de mensaje de ROS 2).
+
+Interfaces o Librerías Externas: (Hardware, UI, etc., si aplica).
+
+Variables de Control: (Banderas booleanas, contadores, velocidades de referencia).
+
+Estructuras de Datos: (Mensajes de ROS 2 u otros structs donde se empaqueta la información).
+
+Aquí tienes el código del nuevo nodo en el que debes basarte:
+
+hpp: código de hpp
+
+cpp: código de cpp
+

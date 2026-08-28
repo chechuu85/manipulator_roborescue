@@ -67,6 +67,19 @@ def generate_launch_description():
                 ],
     )
 
+
+    #===========================================================
+    # API robot real 
+    # ==========================================================
+    api_real_robot = Node(
+            package="api_robot",  
+            executable="nodo_pruebas",     
+            name="api_nodo_pruebas",      
+            output="screen",
+            condition=IfCondition(PythonExpression(["'", sim_mode, "' == 'false'"])),
+            parameters=[{'timer_period_ms': sampling_rate}] 
+
+        )
   
     #===========================================================
     # ADAPTADOR SIMULADOR FOXGLOVE
@@ -76,8 +89,8 @@ def generate_launch_description():
         executable="adapterToSimulation",     
         name="adapterToSimulation",      
         output="screen",
-        condition=IfCondition(sim_mode), 
-        parameters=[{'timer_period_ms': sampling_rate}] 
+        parameters=[{'timer_period_ms': sampling_rate},
+                    {'sim_mode': sim_mode},] 
     )
 
     
@@ -89,6 +102,7 @@ def generate_launch_description():
         executable="keyboard",     
         name="keyboard",      
         output="screen",
+        condition=IfCondition(PythonExpression(["'", input_type, "' == 'keyboard'"])),
         parameters=[{'timer_period_ms': sampling_rate}] 
     )
 
@@ -100,7 +114,6 @@ def generate_launch_description():
         executable="kdlCartesianToJoint",     
         name="kdl_ik_node",      
         output="screen",
-        condition=IfCondition(PythonExpression(["'", input_type, "' == 'keyboard'"])),
         parameters=[robot_description]  
     )
 
@@ -158,6 +171,7 @@ def generate_launch_description():
         kdl_ik_node,
         kdl_fk_node,
         trajectory_planning_node,
+        api_real_robot,
 
         # Acción con retardo para la comunicación
         TimerAction(

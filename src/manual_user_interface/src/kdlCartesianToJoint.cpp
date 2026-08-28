@@ -133,7 +133,7 @@ void KdlCartesianToJoint::poseCallback(const manipulator_msgs::msg::HiperPose::S
     joint_publish.joint_state_command.position.resize(chain_.getNrOfJoints());
     joint_publish.joint_state_command.velocity.resize(chain_.getNrOfJoints());
 
-    // Rellenan las posiciones
+    // Rellenan las posiciones de joint_publish con las de next_joint_planning_positions_
     std::memcpy(
         joint_publish.joint_state_command.position.data(), 
         next_joint_planning_positions_.data.data(),
