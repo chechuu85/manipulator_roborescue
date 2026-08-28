@@ -146,6 +146,7 @@ ros2 launch bringup simulation_script.launch.py sim_mode:=false sampling_rate:=1
 Se pueden quitar y poner características para lanzar la configuración deseada y que no sea por defecto.
 
 Al usar la configuración por defecto se lanza el siguiente esquema de nodos (nodo de teclado, modo simulación y a 20ms):
+(los diagramas contienen el nodo usado junto con el paquete en el cual está contenido y el nombre del topic o servicio que lo conecta junto con el tipo de dato que se traspasa. )
 
 ```mermaid
 graph LR
@@ -214,4 +215,76 @@ graph LR
 
 ```
 
-El diagrama contiene el nodo usado junto con el paquete en el cual está contenido y el nombre del topic o servicio que lo conecta junto con el tipo de dato que se traspasa. 
+
+El diagrama de nodos obtenido para la ejecución del manipulador real es el siguiente:
+```mermaid
+graph LR
+    %% Nodos de ROS 2 (Ejecutables - Óvalos)
+    KBD(("/keyboard<br/>(manual_user_interface)"))
+    TPN(("/trajectory_planning_node<br/>(advanced_user_interface)"))
+    KIK(("/kdl_ik_node<br/>(manual_user_interface)"))
+    ANP(("aclaración**<br/>(api_robot)"))
+    A2S(("/adapterToSimulation<br/>(manual_user_interface)"))
+    KFK(("/kdl_fk_node<br/>(manual_user_interface)"))
+    RSP(("/robot_state_publisher<br/>(nodo externo)"))
+    FGB(("/foxglove_bridge<br/>(nodo externo)"))
+
+    %% Tópicos de ROS 2 (Mensajes - Rectángulos)
+    T_IIT[/"/input_instr_trayectory<br/>(std_msgs/String)"/]
+    T_PP[/"/planning_pose<br/>(manipulator_msgs/HiperPose)"/]
+    T_IC[/"/input_cartesian<br/>(manipulator_msgs/HiperTwist)"/]
+    T_IA[/"/input_articular<br/>(sensor_msgs/JointState)"/]
+    T_KA[/"/kdl_articular<br/>(manipulator_msgs/HiperJointState)"/]
+    T_RRD[/"/real_robot_data<br/>(tipo de mensaje)"/]
+    T_JS[/"/joint_states<br/>(sensor_msgs/JointState)"/]
+    T_TF[/"/tf<br/>(tf2_msgs/TFMessage)"/]
+
+    %% Flujo de Pub/Sub desde el Teclado
+    KBD --> T_IIT
+    KBD --> T_IC
+    KBD --> T_IA
+    
+    %% Flujo de Planificación de Trayectoria
+    T_IIT --> TPN
+    TPN --> T_PP
+    T_PP --> KIK
+    
+    %% Flujo de Cinemática Inversa (IK)
+    T_IC --> KIK
+    T_IA --> KIK
+    KIK --> T_KA
+    
+    %% Bypass directo a Foxglove
+    T_IA --> FGB
+    T_KA --> FGB
+    
+    %% Nodos de Pruebas y Simulación
+    T_KA --> ANP
+    ANP --> T_RRD
+    T_RRD --> A2S
+    A2S --> T_JS
+    
+    %% Distribución del Joint State
+    T_JS --> KIK
+    T_JS --> KFK
+    T_JS --> RSP
+    T_JS --> FGB
+    
+    %% Flujo de TF (Transformaciones)
+    RSP --> T_TF
+    T_TF --> FGB
+
+    %% Conexión de Servicio Solicitada (Service)
+    %% Se usa línea punteada para diferenciar los servicios de los tópicos
+    KFK <-.->|"/service_odometry_pose"| TPN
+
+    %% Estilos (Clases)
+    classDef node fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff;
+    classDef topic fill:#025997,stroke:#fff,stroke-width:1px,color:#fff;
+    
+    class KBD,TPN,KIK,ANP,A2S,KFK,RSP,FGB node;
+    class T_IIT,T_PP,T_IC,T_IA,T_KA,T_RRD,T_JS,T_TF topic;
+
+```
+
+aclaración**: actualmente se tiene un nodo provisional para ir probando poco a poco todas las funciones. En el futuro se implementará un nodo completo con todas las funciones
