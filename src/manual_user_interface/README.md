@@ -404,3 +404,96 @@ Parametros implícitos usados: lee directamente los parámetros globales
 - joint_states_sub_ (rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr): Es el canal que conecta tu software matemático con los drivers físicos de los motores. Se encarga de escuchar de fondo (en el tópico /joint_states) lo que gritan los encoders de tus motores (Rozum y Dynamixel). Cada vez que detecta información nueva, dispara el callback que actualiza q_current_
 
 - current_pose_service_ (rclcpp::Service<manipulator_msgs::srv::GetCurrentPose>::SharedPtr): Es la ventanilla de atención al cliente de este nodo. Se queda inactivo esperando a que otro programa (como tu interfaz de guardado de puntos de trayectoria) "llame a la puerta" y pregunte: "Oye, ¿dónde está el brazo ahora mismo?". Al recibir la petición, este servicio toma el cálculo del fk_solver_ y responde con las coordenadas 3D exactas.
+
+## adapterToSimulation.hpp / .cpp
+### Introducción
+El nodo AdapterToSimulationNode funciona como un multiplexor y una capa de abstracción fundamental para aislar el flujo de datos articulares entre el hardware físico y el entorno de simulación/visualización. Su propósito principal es unificar y estandarizar la forma en la que el estado cinemático del robot (posiciones y velocidades de las articulaciones) se reporta al sistema global de ROS 2, publicando siempre mensajes estándar sensor_msgs/JointState que alimentan al árbol de transformaciones (TF) y a herramientas como RViz.
+
+El papel que juega dentro del sistema se divide en dos modalidades de operación mutuamente excluyentes, dictadas en tiempo de lanzamiento mediante el parámetro sim_mode. Si el sistema opera con el robot real, el nodo actúa como un traductor directo, suscribiéndose a la telemetría cruda de los motores físicos (mezclando datos de motores Rozum y Dinamixel) y reempaquetándola. Por el contrario, si opera en simulación, el nodo asume el rol de un integrador cinemático que procesa comandos articulares teóricos a una frecuencia constante definida por un temporizador.
+
+Además de su función de enrutamiento, el nodo implementa una pequeña máquina de estados (MANUAL, TRAJECTORY) que modifica su comportamiento lógico en simulación. En el modo trayectoria, actúa como un puente directo (passthrough) de las coordenadas calculadas; mientras que, en el modo manual, realiza una integración numérica discreta sobre las velocidades comandadas para estimar y generar de forma continua las posiciones articulares resultantes, previniendo además singularidades cinemáticas al inicio mediante la inyección de offsets predefinidos.
+
+### Diagrama de Flujo
+
+```mermaid
+graph LR
+    %% Tópicos e Interfaces
+    A[/"/kdl_articular<br/>(manipulator_msgs/HiperJointState)"/]
+    B[/"/real_robot_data<br/>(manipulator_msgs/ManipulatorMotorStage)"/]
+    C[/"/joint_states<br/>(sensor_msgs/JointState)"/]
+
+    %% Contenedor Negro Exterior (El Nodo)
+    subgraph AdapterToSimulationNode ["AdapterToSimulationNode"]
+        direction TB
+        %% Cuadrado Naranja (Parámetros)
+        Param["Parámetros: sim_mode, timer_period_ms"]
+    end
+
+    %% Conexiones (Apuntan al contenedor exterior)
+    A -->|"Suscriptor (sim_mode = true)"| AdapterToSimulationNode
+    B -->|"Suscriptor (sim_mode = false)"| AdapterToSimulationNode
+    AdapterToSimulationNode -->|Publicador| C
+    
+    %% Estilos de los elementos individuales
+    classDef topic fill:#025997,stroke:#fff,stroke-width:1px,color:#fff;
+    classDef param fill:#d35400,stroke:#fff,stroke-width:1px,color:#fff;
+
+    %% Aplicación de estilos
+    class A,B,C topic;
+    class Param param;
+
+    %% Estilo del Contenedor Exterior (Caja Negra con borde verde)
+    style AdapterToSimulationNode fill:#1e1e1e,stroke:#4CAF50,stroke-width:2px,color:#fff
+```
+
+### Arquitectura y funciones principales
+
+1. Inicicialización y destrucción
+- AdapterToSimulationNode() Constructor de la clase. Inicializa los parámetros de ROS 2 desde el servidor de parámetros (o launch file), dimensiona y nombra los vectores de la estructura de estado articular. Basado en el parámetro sim_mode, decide si instanciar el suscriptor de telemetría física o, alternativamente, el suscriptor de comandos simulados junto con su respectivo bucle temporizado. Inicializa posiciones de seguridad para evitar singularidades.
+(buscar alternativa para solucionar las singularidades)
+
+Entradas: void 
+Salidas: void
+Parámetros implícitos usados: sim_mode, timer_period_ms, pub_joint_states_, sub_physic_robot_, sub_articular_, timer_, joint_state_msg_, posiciones_actuales_, ultimo_tiempo_.
+
+- ~AdapterToSimulationNode(): Destructor de la clase. Imprime un log informando de la finalización controlada del nodo y libera los recursos de los shared pointers de ROS 2.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: Instancia del logger de ROS 2.
+
+- callback_simul: Callback activado al recibir comandos dirigidos a la simulación. Actúa como el controlador de transiciones de la máquina de estados evaluando el campo command_info ("FIRST", "LAST", "MANUAL"). Muta el estado lógico del nodo y actualiza los búferes internos de posición y velocidad, aplicando truncamientos de seguridad si los datos recibidos (tamaño del vector) son insuficientes.
+
+Entradas: const manipulator_msgs::msg::HiperJointState::SharedPtr msg
+Salidas: void
+Parámetros implícitos usados: current_mode_, posiciones_actuales_, velocidades_actuales_.
+
+- callback_real: Callback exclusivo del modo físico. Recibe los estados en bruto directamente de las controladoras de los motores (3 Rozum y 5 Dinamixel). Desempaqueta estas estructuras anidadas en hardware y unifica los 8 motores en un único mensaje estándar, publicándolo inmediatamente con su respectiva marca de tiempo (timestamp)
+
+Entradas: const manipulator_msgs::msg::ManipulatorMotorStage::SharedPtr msg
+Salidas: void
+Parámetros implícitos usados: joint_state_msg_, pub_joint_states_.
+
+- timer_callbackDescripción: Bucle síncrono exclusivo del modo simulación. Calcula el diferencial de tiempo ($dt$) real entre llamadas. Si el estado es TRAJECTORY, inyecta en el mensaje las posiciones directamente; si es MANUAL, integra las velocidades comandadas ($Pos_t = Pos_{t-1} + Vel * dt$) para deducir la posición actual. Finalmente, publica el mensaje estandarizado.
+
+Entradas: void
+Salidas: void
+Parámetros implícitos usados: ultimo_tiempo_, current_mode_, posiciones_actuales_, velocidades_actuales_, joint_state_msg_, pub_joint_states_.
+
+### Variables globales
+
+1. Publicadores, Suscriptores y Temporizadores
+- pub_joint_states_ (sensor_msgs::msg::JointState): Publicador del estado unificado y final del robot para la simulación.
+- sub_articular_ (manipulator_msgs::msg::HiperJointState): Suscriptor a las peticiones de movimiento para alimentar la simulación.
+- sub_physic_robot_ (manipulator_msgs::msg::ManipulatorMotorStage): Suscriptor a la telemetría real proveniente del driver de los motores físicos.
+- timer_: Temporizador de ROS 2 para gobernar el bucle asíncrono de cálculo y publicación a la simulación.
+
+2. Variables de Control:
+- sim_mode (bool): Bandera arquitectónica extraída de los parámetros que bifurca todo el comportamiento del nodo (Falso = Passthrough físico, Verdadero = Simulación iterativa).
+- timer_period_ms (int): Intervalo en milisegundos que define la frecuencia de actualización del timer_.
+- current_mode_ (RobotMode (Enum)). Variable de la máquina de estados interna; distingue entre MANUAL (donde se requiere integración numérica) y TRAJECTORY (modo de streaming puro).
+
+3. Estructuras de Datos:
+- posiciones_actuales_ / velocidades_actuales_(std::vector<double>): Actúan como búferes de memoria RAM estáticos (pre-reservados a un tamaño de 8) para retener el estado articular más reciente sin depender de variables locales.
+- joint_state_msg_ (sensor_msgs::msg::JointState): Pre-configurada en el constructor con los nombres de las 8 articulaciones y el frame base para ahorrar procesamiento durante los callbacks.
+- ultimo_tiempo_ (rclcpp::Time): Almacena la marca de tiempo absoluta de la última ejecución del temporizador, indispensable para calcular derivadas e integrales de tiempo correcto.
