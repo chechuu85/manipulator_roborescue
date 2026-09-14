@@ -120,7 +120,7 @@ void GlobalManipulator::gestor_tareas() {
 // ==========================================
 
 void GlobalManipulator::read_positions() {
-    // 1. Notificar al hilo secundario (Garra)
+    // Notificar al hilo secundario (Garra)
     {
         std::lock_guard<std::mutex> lock(mtx_sincronizacion);
         comando_actual_ = tarea_dynamixel::READ_POSITION;
@@ -128,10 +128,10 @@ void GlobalManipulator::read_positions() {
     }
     cv_iniciar_tarea_.notify_one();
 
-    // 2. Ejecutar la tarea del brazo en el hilo principal (Rozum)
+    // Ejecutar la tarea del brazo en el hilo principal (Rozum)
     arm->read_positions();
 
-    // 3. Esperar a que la garra termine para continuar sincronizados
+    // Esperar a que la garra termine para continuar sincronizados
     {
         std::unique_lock<std::mutex> lock(mtx_sincronizacion);
         cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
@@ -186,7 +186,7 @@ void GlobalManipulator::read_temperatures() {
     }
 }
 
-void GlobalManipulator::set_velocities(const std::array<float, 3>& arm_vels, const std::array<float, 5>& claw_vels) {
+void GlobalManipulator::set_velocities(const std::array<double, 3>& arm_vels, const std::array<double, 5>& claw_vels) {
     // Precargamos los valores de actuación para la garra antes de disparar el hilo
     claw->motor1.actuation_motor.velocity = claw_vels[0];
     claw->motor2.actuation_motor.velocity = claw_vels[1];
@@ -212,7 +212,7 @@ void GlobalManipulator::set_velocities(const std::array<float, 3>& arm_vels, con
     }
 }
 
-void GlobalManipulator::set_positions(const std::array<float, 3>& arm_pos, const std::array<float, 5>& claw_pos) {
+void GlobalManipulator::set_positions(const std::array<double, 3>& arm_pos, const std::array<double, 5>& claw_pos) {
     // Precargamos los valores de actuación para la garra
     claw->motor1.actuation_motor.position = claw_pos[0];
     claw->motor2.actuation_motor.position = claw_pos[1];

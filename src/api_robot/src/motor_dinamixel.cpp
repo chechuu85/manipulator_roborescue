@@ -21,10 +21,16 @@ DinamixelMotor::~DinamixelMotor() {
 // ==========================================
 
 void DinamixelMotor::set_torque_state(bool state) {
+    uint8_t dxl_error = 0;
+
+    int dxl_comm_result = packetHandler->write1ByteTxRx(portHandler, id, READ_TORQUE_ADDRESS, state, &dxl_error);
     
     // Activar el torque y comprobar si funciona
-    if (packetHandler->write1ByteTxRx(portHandler, id, READ_TORQUE_ADDRESS, state) != COMM_SUCCESS) {
-        throw std::runtime_error("Error: No se pudo activar el torque del motor " + std::to_string(id));
+    if (dxl_comm_result != COMM_SUCCESS) {
+        throw std::runtime_error("Error de comunicación al leer la posición del motor " + std::to_string(this->id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
+    }
+    if (dxl_error != 0) {
+        throw std::runtime_error("El motor devolvió un error al leer la posición. Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
     }
 }
 
@@ -79,8 +85,8 @@ void DinamixelMotor::read_all_parameters(dynamixel::GroupSyncRead* groupSyncRead
         if (groupSyncRead->isAvailable(id, READ_CURRENT_ADDRESS, 21)) {
             
             // Extracción de datos desde el búfer de memoria RAM
-            telemetry_motor.position = static_cast<float>(groupSyncRead->getData(id, READ_POSITION_ADDRESS, 4));
-            telemetry_motor.velocity = static_cast<float>(groupSyncRead->getData(id, READ_VELOCITY_ADDRESS, 4));
+            telemetry_motor.position = static_cast<float>(groupSyncRead->getData(id, READ_POSITION_ADDRESS, 4))*CONV_PULS2RAD;
+            telemetry_motor.velocity = static_cast<float>(groupSyncRead->getData(id, READ_VELOCITY_ADDRESS, 4))*CONV_PULS2RADS;
             telemetry_motor.current = static_cast<int16_t>(groupSyncRead->getData(id, READ_CURRENT_ADDRESS, 2));
             telemetry_motor.temperature = static_cast<int8_t>(groupSyncRead->getData(id, READ_TEMPERATURE_ADDRESS, 1));
             
@@ -95,30 +101,48 @@ void DinamixelMotor::read_all_parameters(dynamixel::GroupSyncRead* groupSyncRead
         uint32_t raw_velocity = 0;
         uint16_t raw_current = 0;
         uint8_t raw_temperature = 0;
+        uint8_t dxl_error = 0;
+        int dxl_comm_result = 0;
 
         // Lectura de Posición (4 bytes)
-        if (packetHandler->read4ByteTxRx(portHandler, this->id, READ_POSITION_ADDRESS, &raw_position) != COMM_SUCCESS) {
-            throw std::runtime_error("Error: No se pudo leer la posición del motor " + std::to_string(this->id));
+        dxl_comm_result = packetHandler->read4ByteTxRx(portHandler, this->id, READ_POSITION_ADDRESS, &raw_position, &dxl_error);
+        if (dxl_comm_result != COMM_SUCCESS) {
+            throw std::runtime_error("Error de comunicación al leer la posición del motor " + std::to_string(this->id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
+        }
+        if (dxl_error != 0) {
+            throw std::runtime_error("El motor devolvió un error al leer la posición. Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
         }
         
         // Lectura de Velocidad (4 bytes)
-        if (packetHandler->read4ByteTxRx(portHandler, this->id, READ_VELOCITY_ADDRESS, &raw_velocity) != COMM_SUCCESS) {
-            throw std::runtime_error("Error: No se pudo leer la velocidad del motor " + std::to_string(this->id));
+        dxl_comm_result = packetHandler->read4ByteTxRx(portHandler, this->id, READ_VELOCITY_ADDRESS, &raw_velocity, &dxl_error);
+        if (dxl_comm_result != COMM_SUCCESS) {
+            throw std::runtime_error("Error de comunicación al leer la velocidad del motor " + std::to_string(this->id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
+        }
+        if (dxl_error != 0) {
+            throw std::runtime_error("El motor devolvió un error al leer la velocidad. Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
         }
         
         // Lectura de Corriente (2 bytes)
-        if (packetHandler->read2ByteTxRx(portHandler, this->id, READ_CURRENT_ADDRESS, &raw_current) != COMM_SUCCESS) {
-            throw std::runtime_error("Error: No se pudo leer la corriente del motor " + std::to_string(this->id));
+        dxl_comm_result = packetHandler->read2ByteTxRx(portHandler, this->id, READ_CURRENT_ADDRESS, &raw_current, &dxl_error);
+        if (dxl_comm_result != COMM_SUCCESS) {
+            throw std::runtime_error("Error de comunicación al leer la corriente del motor " + std::to_string(this->id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
+        }
+        if (dxl_error != 0) {
+            throw std::runtime_error("El motor devolvió un error al leer la corriente. Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
         }
         
         // Lectura de Temperatura (1 byte)
-        if (packetHandler->read1ByteTxRx(portHandler, this->id, READ_TEMPERATURE_ADDRESS, &raw_temperature) != COMM_SUCCESS) {
-            throw std::runtime_error("Error: No se pudo leer la temperatura del motor " + std::to_string(this->id));
+        dxl_comm_result = packetHandler->read1ByteTxRx(portHandler, this->id, READ_TEMPERATURE_ADDRESS, &raw_temperature, &dxl_error);
+        if (dxl_comm_result != COMM_SUCCESS) {
+            throw std::runtime_error("Error de comunicación al leer la temperatura del motor " + std::to_string(this->id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
+        }
+        if (dxl_error != 0) {
+            throw std::runtime_error("El motor devolvió un error al leer la temperatura. Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
         }
 
         // Asignación con los casteos correctos definidos en DinamixelMotorData
-        telemetry_motor.position = static_cast<float>(raw_position);
-        telemetry_motor.velocity = static_cast<float>(raw_velocity);
+        telemetry_motor.position = static_cast<float>(raw_position)*CONV_PULS2RAD;
+        telemetry_motor.velocity = static_cast<float>(static_cast<int32_t>(raw_velocity))*CONV_PULS2RADS;
         telemetry_motor.current = static_cast<int16_t>(raw_current);
         telemetry_motor.temperature = static_cast<int8_t>(raw_temperature);
     }
@@ -166,7 +190,8 @@ void DinamixelMotor::read_velocity(dynamixel::GroupSyncRead* groupSyncRead) {
         
         if (dxl_comm_result != COMM_SUCCESS) {
             throw std::runtime_error("Error: No se pudo leer la velocidad del motor " + std::to_string(this->id));
-            telemetry_motor.velocity = static_cast<float>(raw_velocity);
+            telemetry_motor.velocity = static_cast<float>(static_cast<int32_t>(raw_velocity));
+
         }
     }
  }
@@ -235,12 +260,15 @@ void DinamixelMotor::read_torque_state() {
 
 void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
     // Limites en software para evitar que el motor se mueva fuera de su rango 
-    if (actuation_motor.velocity > 0 && (actuation_motor.position > MAX_POSITION || actuation_motor.position < MIN_POSITION)){
-        actuation_motor.velocity = 0;
-    }
+    // if (actuation_motor.velocity > 0 && (actuation_motor.position > MAX_POSITION || actuation_motor.position < MIN_POSITION)){
+    //     actuation_motor.velocity = 0;
+    // }
 
     // Según si está usando BultWrite o no, se envía con el método BultWrite o con el método individual
     if (groupSyncWrite != nullptr) {
+        // Dividir para pasar a pulsos
+        actuation_motor.velocity = actuation_motor.velocity/CONV_PULS2RADS;
+
         // Crear array para dividir variable en pasos más pequeños
         uint8_t velocity_bytes[4];
         velocity_bytes[0] = DXL_LOBYTE(DXL_LOWORD(actuation_motor.velocity));
@@ -254,7 +282,7 @@ void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
             throw std::runtime_error("Error: No se pudo empaquetar la velocidad del motor " + std::to_string(id));
         }
     } else {
-        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_VELOCITY_ADDRESS, actuation_motor.velocity);
+        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_VELOCITY_ADDRESS, actuation_motor.velocity/CONV_PULS2RADS);
         
         if (dxl_comm_result != COMM_SUCCESS) {
             throw std::runtime_error("Error: No se pudo enviar la velocidad al motor " + std::to_string(id));
@@ -282,7 +310,7 @@ void DinamixelMotor::set_position(dynamixel::GroupSyncWrite* groupSyncWrite) {
             throw std::runtime_error("Error: No se pudo empaquetar la posición del motor " + std::to_string(id));
         }
     } else {
-        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_POSITION_ADDRESS, actuation_motor.position);
+        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_POSITION_ADDRESS, actuation_motor.position/CONV_PULS2RAD);
         
         if (dxl_comm_result != COMM_SUCCESS) {
             throw std::runtime_error("Error: No se pudo enviar la posición al motor " + std::to_string(id));

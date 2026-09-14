@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdexcept>
 #include <vector>
+#include <math.h>
 
 class DinamixelMotor {
 private:
@@ -34,6 +35,10 @@ private:
     #define WRITE_POSITION_ADDRESS 116
     #define POSITION_LIMIT 4
     #define VELOCITY_LIMIT 48
+    // 4096 pulsos es una vuelta
+    const float CONV_PULS2RAD = (2.0 * M_PI / 4096.0);
+    // 0.229 rpm por unidad. rad/s = rpm * (2*PI) / 60
+    const float CONV_PULS2RADS = 0.229 * (2.0 * M_PI / 60.0);
 
 public:
 

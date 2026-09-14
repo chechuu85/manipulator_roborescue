@@ -35,8 +35,8 @@ public:
 
     // --- Control de Movimiento ---
     // Reciben un array con los valores objetivo para el motor 1, 2 y 3 respectivamente
-    void set_velocities(const std::array<float, 3>& target_velocities);
-    void set_positions(const std::array<float, 3>& target_positions);
+    void set_velocities(const std::array<double, 3>& target_velocities);
+    void set_positions(const std::array<double, 3>& target_positions);
 
     // --- Gestión de Hardware ---
     void set_velocity_limits_all();    // Establece los límites de velocidad para los 3 motores

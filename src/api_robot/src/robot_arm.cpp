@@ -84,7 +84,7 @@ void RozumArm::read_temperatures() {
 // CONTROL DE MOVIMIENTO
 // ==========================================
 
-void RozumArm::set_velocities(const std::array<float, 3>& target_velocities) {
+void RozumArm::set_velocities(const std::array<double, 3>& target_velocities) {
     // Asignar los objetivos de actuación a las estructuras internas
     motor1.actuation_motor.velocity = target_velocities[0];
     motor2.actuation_motor.velocity = target_velocities[1];
@@ -96,7 +96,7 @@ void RozumArm::set_velocities(const std::array<float, 3>& target_velocities) {
     motor3.set_velocity();
 }
 
-void RozumArm::set_positions(const std::array<float, 3>& target_positions) {
+void RozumArm::set_positions(const std::array<double, 3>& target_positions) {
     // Asignar los objetivos de actuación a las estructuras internas
     motor1.actuation_motor.position = target_positions[0];
     motor2.actuation_motor.position = target_positions[1];

@@ -41,10 +41,8 @@ private:
     sensor_msgs::msg::JointState joint_state_msg_{};
     rclcpp::Time ultimo_tiempo_;
 
-    // Máquina de estados y variables de trayectoria
+    // Máquina de estados 
     RobotMode current_mode_ = RobotMode::MANUAL;
-    trajectory_msgs::msg::JointTrajectory trajectory_msg_;
-    size_t trajectory_publish_index_ = 0;
 
 };
 

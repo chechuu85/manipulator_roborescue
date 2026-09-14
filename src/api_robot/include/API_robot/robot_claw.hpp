@@ -40,8 +40,8 @@ public:
 
     // --- Control de Movimiento Síncrono ---
     // Reciben un array con los objetivos (orden: motor1, motor2, motor3, motor5, motor12)
-    void set_velocities(const std::array<float, 5>& target_velocities);
-    void set_positions(const std::array<float, 5>& target_positions);
+    void set_velocities(const std::array<double, 5>& target_velocities);
+    void set_positions(const std::array<double, 5>& target_positions);
 
     // --- Gestión de Hardware ---
     void set_limits_all(); // Configura límites de posición y velocidad

@@ -72,7 +72,16 @@ KeyboardNode::~KeyboardNode() {
 // ==========================================
 void KeyboardNode::timer_callback() {
     // Procesa todos los eventos del hardware del PC (teclado, ratón, etc.) y lo guarda en state
-    SDL_PumpEvents(); 
+    // SDL_PumpEvents(); 
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        // Como extra, esto te permite cerrar el nodo limpiamente 
+        // si haces clic en la 'X' de la ventana de SDL.
+        if (event.type == SDL_QUIT) {
+            rclcpp::shutdown();
+            return;
+        }
+    }
     
     const Uint8 *state = SDL_GetKeyboardState(NULL);
 
@@ -122,17 +131,17 @@ void KeyboardNode::timer_callback() {
 void KeyboardNode::articular_mode(const Uint8 *state){
     // Lógica de incremento/decremento (Q, A para Rozum; T, G para Dinamixel)
     if (state[SDL_SCANCODE_Q]) { 
-        if(!flag_q) { ref_vel_rozum += 0.5f; flag_q = true;} 
+        if(!flag_q) { ref_vel_rozum += 0.05f; flag_q = true;} 
     } else flag_q = false;
     if (state[SDL_SCANCODE_A]) { 
-        if(!flag_a) { ref_vel_rozum -= 0.5f; flag_a = true; } 
+        if(!flag_a) { ref_vel_rozum -= 0.05f; flag_a = true; } 
     } else flag_a = false;
     
     if (state[SDL_SCANCODE_T]) { 
-        if(!flag_t) { ref_vel_dinamixel += 2.0f; flag_t = true; } 
+        if(!flag_t) { ref_vel_dinamixel += 0.02f; flag_t = true; } 
     } else flag_t = false;
     if (state[SDL_SCANCODE_G]) { 
-        if(!flag_g) { ref_vel_dinamixel -= 2.0f; flag_g = true; } 
+        if(!flag_g) { ref_vel_dinamixel -= 0.02f; flag_g = true; } 
     } else flag_g = false;
 
     // Mapeo de columnas para motores. Rozum (3 columnas W/S, E/D, R/F)

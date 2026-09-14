@@ -53,23 +53,22 @@ void DynamixelClaw::set_mode_all(char mode) {
 // ==========================================
 
 void DynamixelClaw::read_all_parameters() {
-    // 1. Inicializar el paquete de lectura síncrona
-    // Se empieza a leer desde la dirección 126 (Corriente) y se piden 21 bytes en total[cite: 1, 5].
+    // Inicializa el paquete de lectura síncrona. Empieza a leer desde la dirección 126 (Corriente) y se piden 21 bytes en total[cite: 1, 5].
     dynamixel::GroupSyncRead groupSyncRead(portHandler, packetHandler, READ_CURRENT_ADDRESS, 21);
     
-    // 2. Añadir los IDs de los 5 motores al paquete
+    // Añadir los IDs de los 5 motores al paquete
     motor1.add_ID_to_sync_read(&groupSyncRead);
     motor2.add_ID_to_sync_read(&groupSyncRead);
     motor3.add_ID_to_sync_read(&groupSyncRead);
     motor5.add_ID_to_sync_read(&groupSyncRead);
     motor12.add_ID_to_sync_read(&groupSyncRead);
 
-    // 3. Disparar la petición por el bus RS-485/TTL
+    // Disparar la petición por el bus RS-485/TTL
     if (groupSyncRead.txRxPacket() != COMM_SUCCESS) {
         throw std::runtime_error("Error en comunicación txRxPacket al leer la telemetría completa de la garra.");
     }
 
-    // 4. Cada motor busca su propio ID dentro del búfer descargado y extrae sus 4 variables
+    // Cada motor busca su propio ID dentro del búfer descargado y extrae sus 4 variables
     motor1.read_all_parameters(&groupSyncRead);
     motor2.read_all_parameters(&groupSyncRead);
     motor3.read_all_parameters(&groupSyncRead);
@@ -167,7 +166,7 @@ void DynamixelClaw::read_temperatures() {
 // CONTROL DE MOVIMIENTO SÍNCRONO
 // ==========================================
 
-void DynamixelClaw::set_velocities(const std::array<float, 5>& target_velocities) {
+void DynamixelClaw::set_velocities(const std::array<double, 5>& target_velocities) {
     // Asignamos la velocidad interna requerida antes del empaquetado
     motor1.actuation_motor.velocity = target_velocities[0];
     motor2.actuation_motor.velocity = target_velocities[1];
@@ -191,7 +190,7 @@ void DynamixelClaw::set_velocities(const std::array<float, 5>& target_velocities
     }
 }
 
-void DynamixelClaw::set_positions(const std::array<float, 5>& target_positions) {
+void DynamixelClaw::set_positions(const std::array<double, 5>& target_positions) {
     // Asignamos la posición interna requerida antes del empaquetado
     motor1.actuation_motor.position = target_positions[0];
     motor2.actuation_motor.position = target_positions[1];
