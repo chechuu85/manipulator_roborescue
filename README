@@ -2,6 +2,7 @@ Instalar: Foxglobe para usar la interfaces:
 sudo snap install foxglove: studio  instalar la comunicación de los nodos con foxglove
 luego instalar la aplicación de foxglove
 
+para lanzar el punte con foxglove:
 ros2 launch foxglove_bridge foxglove_bridge_launch.xml
 
 ***Importante***
@@ -91,3 +92,67 @@ hpp: código de hpp
 
 cpp: código de cpp
 
+
+
+#### CODIGOS INSTALAR MOVEIT2 ####
+
+sudo apt update
+sudo apt install ros-humble-moveit
+sudo apt install ros-humble-moveit-visual-tools
+
+
+### Crea despritor de robot para MOVEIT2
+ros2 launch moveit_setup_assistant setup_assistant.launch.py
+En el menú de la izquierda de la ventana, irás bajando por las distintas pestañas:
+
+Start (Inicio): Haz clic en "Create New MoveIt Configuration Package". Justo debajo, dale a Browse 
+y busca tu archivo manipulador_modu.urdf.xacro. Si se cierra el programa solo haz source install/setup.bash 
+en el ws Haz clic en Load Files. 
+
+Self-Collisions (Autocolisiones): Haz clic en "Generate Collision Matrix". Esto calcula qué partes de 
+tu robot pueden chocar entre sí para ignorarlas de forma segura.
+
+Virtual Joints (Opcional): Si la base de tu robot está fija al suelo, añade un Virtual Joint. Ponle 
+de nombre virtual_joint, asocia el Child Link a tu eslabón base (ej. base_link) y el Parent Frame Name 
+a world. Tipo: fixed.
+
+Planning Groups (¡MUY IMPORTANTE!): Aquí es donde creamos el "manipulator" que pide tu código C++.
+
+Haz clic en "Add Group".
+
+En Group Name, escribe exactamente manipulator.
+
+En Kinematic Solver, elige kdl_kinematics_plugin/KDLKinematicsPlugin (es el estándar por defecto).
+
+Haz clic en el botón "Add Kin. Chain" (Añadir cadena cinemática). Expande el árbol y selecciona como 
+Base Link la base de tu robot, y como Tip Link la punta de tu brazo robótico. Guárdalo.
+
+Robot Poses (Opcional): Haz clic en "Add Pose", llámala home, mueve las barras deslizantes para poner el 
+robot en una posición segura y guárdala.
+
+Author Information: Rellena tu nombre y un email (el programa te obliga a hacerlo para generar el paquete).
+
+3. Generar el paquete
+Ve a la última pestaña: Configuration Files.
+
+Haz clic en Browse y selecciona la carpeta src/ de tu espacio de trabajo 
+(es decir, /home/jesusaguilar/brazo_salva/moveit2_wsprueba/src/).
+
+El asistente te sugerirá un nombre para la nueva carpeta. Llámala, por ejemplo, manipulador_modu_moveit_config.
+
+Haz clic en el gran botón "Generate Package".
+
+Cuando termine, cierra el asistente.
+
+
+
+
+***************
+lanzar nodos programadores del robot sin vriz:
+ros2 launch manipulador_modu_moveit_config demo.launch.py use_rviz:=false
+
+
+
+************************
+instalar gazebo
+https://jkk-research.github.io/workshops/f1tenth_sim_a/
