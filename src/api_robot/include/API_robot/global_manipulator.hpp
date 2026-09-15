@@ -1,7 +1,7 @@
 #ifndef GLOBAL_MANIPULATOR_HPP
 #define GLOBAL_MANIPULATOR_HPP
 
-#include "rclcpp/rclcpp.hpp" 
+//#include "rclcpp/rclcpp.hpp" 
 #include "manipulator_msgs/msg/manipulator_motor_stage.hpp"
 #include "API_robot/robot_arm.hpp"
 #include "API_robot/robot_claw.hpp"
@@ -18,15 +18,16 @@ enum class tarea_dynamixel {
     SEND_VELOCITY,
     SEND_POSITION,
     READ_TEMPERATURE,
+    READ_ALL_PARAMETERS,
     READ_VELOCITY,
     READ_POSITION,
     READ_CURRENT,
     POWER_OFF
 };
 
-class GlobalManipulator : public rclcpp::Node {
+class GlobalManipulator {
 private:
-    // --- Componentes del Manipulador ---
+    // Crear variable a arm y claw
     RozumArm* arm;
     DynamixelClaw* claw;
 
@@ -39,10 +40,6 @@ private:
     tarea_dynamixel comando_actual_ = tarea_dynamixel::SLEEPING;
     bool tarea_completada_ = false;
 
-    rclcpp::Publisher<manipulator_msgs::msg::ManipulatorMotorStage>::SharedPtr telemetry_pub_;
-    rclcpp::TimerBase::SharedPtr telemetry_timer_;
-    uint8_t timer_period_ms = 50;
-
     // Bucle infinito del hilo secundario
     void gestor_tareas();
 
@@ -50,17 +47,22 @@ private:
     void publish_telemetry_callback();
 
 public:
+    // --- Componentes del Manipulador ---
+    RozumArm* getArm() { return arm; };
+    DynamixelClaw* getClaw() {return claw; };
+
     // --- Constructor y Destructor ---
     // Recibe los manejadores de los puertos ya inicializados para inyectarlos en las subclases
     GlobalManipulator(rr_can_interface_t* rozum_iface, dynamixel::PortHandler* port, dynamixel::PacketHandler* packet);
     ~GlobalManipulator();
 
     // --- Inicialización ---
-    void init();
+    void init(char dyn_mode);
     void deinit();
 
     // --- Lectura de Variables Síncrona ---
     // Ejecutan la lectura del brazo en el hilo principal y la garra en el secundario
+    void read_all_parameters();
     void read_positions();
     void read_velocities();
     void read_currents();

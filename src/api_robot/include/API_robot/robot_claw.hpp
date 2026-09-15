@@ -18,8 +18,8 @@ public:
     DinamixelMotor motor1;
     DinamixelMotor motor2;
     DinamixelMotor motor3;
+    DinamixelMotor motor4;
     DinamixelMotor motor5;
-    DinamixelMotor motor12;
 
     // --- Constructor y Destructor ---
     DynamixelClaw(dynamixel::PortHandler* port, dynamixel::PacketHandler* packet, 
