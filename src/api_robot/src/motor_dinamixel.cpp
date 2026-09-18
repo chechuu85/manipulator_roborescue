@@ -264,17 +264,19 @@ void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
     //     actuation_motor.velocity = 0;
     // }
 
+    int32_t vel_ticks = static_cast<int32_t>(std::round(actuation_motor.velocity / CONV_PULS2RADS));
+
     // Según si está usando BultWrite o no, se envía con el método BultWrite o con el método individual
     if (groupSyncWrite != nullptr) {
         // Dividir para pasar a pulsos
-        actuation_motor.velocity = actuation_motor.velocity/CONV_PULS2RADS;
+        
 
         // Crear array para dividir variable en pasos más pequeños
         uint8_t velocity_bytes[4];
-        velocity_bytes[0] = DXL_LOBYTE(DXL_LOWORD(actuation_motor.velocity));
-        velocity_bytes[1] = DXL_HIBYTE(DXL_LOWORD(actuation_motor.velocity));
-        velocity_bytes[2] = DXL_LOBYTE(DXL_HIWORD(actuation_motor.velocity));
-        velocity_bytes[3] = DXL_HIBYTE(DXL_HIWORD(actuation_motor.velocity));
+        velocity_bytes[0] = DXL_LOBYTE(DXL_LOWORD(vel_ticks));
+        velocity_bytes[1] = DXL_HIBYTE(DXL_LOWORD(vel_ticks));
+        velocity_bytes[2] = DXL_LOBYTE(DXL_HIWORD(vel_ticks));
+        velocity_bytes[3] = DXL_HIBYTE(DXL_HIWORD(vel_ticks));
         
         // Meter array en el fichero y comprobar que se ha metido bien
         bool result = groupSyncWrite->addParam(id, velocity_bytes);
@@ -282,7 +284,7 @@ void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
             throw std::runtime_error("Error: No se pudo empaquetar la velocidad del motor " + std::to_string(id));
         }
     } else {
-        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_VELOCITY_ADDRESS, actuation_motor.velocity/CONV_PULS2RADS);
+        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_VELOCITY_ADDRESS, vel_ticks);
         
         if (dxl_comm_result != COMM_SUCCESS) {
             throw std::runtime_error("Error: No se pudo enviar la velocidad al motor " + std::to_string(id));
@@ -294,15 +296,17 @@ void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
 void DinamixelMotor::set_position(dynamixel::GroupSyncWrite* groupSyncWrite) {
     // Tener en cuenta los límites de posición
     actuation_motor.position = std::max(std::min(actuation_motor.position, (float)MAX_POSITION), (float)MIN_POSITION);
+    int32_t pos_ticks = static_cast<int32_t>(std::round(actuation_motor.position / CONV_PULS2RAD));
 
     // Según si está usando BultWrite o no, se envía con el método BultWrite o con el método individual
     if (groupSyncWrite != nullptr) {
+
         // Crear array para dividir variable en pasos más pequeños
         uint8_t position_bytes[4];
-        position_bytes[0] = DXL_LOBYTE(DXL_LOWORD(actuation_motor.position));
-        position_bytes[1] = DXL_HIBYTE(DXL_LOWORD(actuation_motor.position));
-        position_bytes[2] = DXL_LOBYTE(DXL_HIWORD(actuation_motor.position));
-        position_bytes[3] = DXL_HIBYTE(DXL_HIWORD(actuation_motor.position));
+        position_bytes[0] = DXL_LOBYTE(DXL_LOWORD(pos_ticks));
+        position_bytes[1] = DXL_HIBYTE(DXL_LOWORD(pos_ticks));
+        position_bytes[2] = DXL_LOBYTE(DXL_HIWORD(pos_ticks));
+        position_bytes[3] = DXL_HIBYTE(DXL_HIWORD(pos_ticks));
 
         // Meter array en el fichero y comprobar que se ha metido bien
         bool result = groupSyncWrite->addParam(id, position_bytes);
@@ -310,7 +314,7 @@ void DinamixelMotor::set_position(dynamixel::GroupSyncWrite* groupSyncWrite) {
             throw std::runtime_error("Error: No se pudo empaquetar la posición del motor " + std::to_string(id));
         }
     } else {
-        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_POSITION_ADDRESS, actuation_motor.position/CONV_PULS2RAD);
+        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_POSITION_ADDRESS, pos_ticks);
         
         if (dxl_comm_result != COMM_SUCCESS) {
             throw std::runtime_error("Error: No se pudo enviar la posición al motor " + std::to_string(id));
@@ -334,8 +338,9 @@ void DinamixelMotor::set_position_limits() {
 }
 
 void DinamixelMotor::set_velocity_limits() { 
-    int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, VELOCITY_LIMIT, MAX_VELOCITY);
+    uint32_t velocity_ticks = static_cast<uint32_t>(std::round(MAX_VELOCITY / CONV_PULS2RADS));
 
+    int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, VELOCITY_LIMIT, velocity_ticks);
     // Validar escritura
     if (dxl_comm_result != COMM_SUCCESS) {
         throw std::runtime_error("Error: No se pudo establecer el límite de velocidad del motor " + std::to_string(this->id));

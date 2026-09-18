@@ -219,12 +219,12 @@ void DynamixelClaw::set_positions(const std::array<double, 5>& target_positions)
 // ==========================================
 
 void DynamixelClaw::set_limits_all() {
-    // Límites de Posición
-    motor1.set_position_limits();
-    motor2.set_position_limits();
-    motor3.set_position_limits();
-    motor4.set_position_limits();
-    motor5.set_position_limits();
+    // // Límites de Posición
+    // motor1.set_position_limits();
+    // motor2.set_position_limits();
+    // motor3.set_position_limits();
+    // motor4.set_position_limits();
+    // motor5.set_position_limits();
 
     // Límites de Velocidad
     motor1.set_velocity_limits();

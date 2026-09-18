@@ -72,6 +72,7 @@ public:
     // Reciben los arrays de objetivos para brazo (3) y garra (5)
     void set_velocities(const std::array<double, 3>& arm_vels, const std::array<double, 5>& claw_vels);
     void set_positions(const std::array<double, 3>& arm_pos, const std::array<double, 5>& claw_pos);
+    
 };
 
 #endif // GLOBAL_MANIPULATOR_HPP

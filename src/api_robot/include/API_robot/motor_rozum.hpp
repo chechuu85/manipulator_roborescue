@@ -5,6 +5,7 @@
 #include "manipulator_msgs/msg/rozum_motor_data.hpp"
 #include <stdint.h>
 #include <stdexcept>
+#include <math.h>
 
 
 class RozumMotor {
@@ -15,9 +16,10 @@ private:
     uint8_t id;                     // ID del motor
 
     // --- Limites del motor y escalas de unidades ---
-    const int MAX_VELOCITY = 50;        // Velocidad (rpm) // 55 en apuntes
+    const float MAX_VELOCITY = 0.5;        // Velocidad (rpm) // 55 en apuntes
     const int MAX_POSITION = 200;       // Posición (grados) Por definir
     const int MIN_POSITION = 0;         // Posición (grados) Por definir
+    const float CONV_DEG2RAD = (M_PI / 180.0f);
 
 
 public:

@@ -69,17 +69,21 @@ include_directories(
 )
 
 add_executable(nodo_pruebas src/global_manipulator.cpp src/motor_dinamixel.cpp src/nodo_pruebas.cpp src/motor_rozum.cpp src/robot_arm.cpp src/robot_claw.cpp)
+add_executable(nodo_pruebas2 src/global_manipulator.cpp src/motor_dinamixel.cpp src/nodo_pruebas2.cpp src/motor_rozum.cpp src/robot_arm.cpp src/robot_claw.cpp)
 #add_executable(manipulator_node src/main.cpp src/global_manipulator.cpp src/motor_dinamixel.cpp src/motor_rozum.cpp src/robot_arm.cpp src/robot_claw.cpp)
 
 target_link_libraries(nodo_pruebas rozum_api)
+target_link_libraries(nodo_pruebas2 rozum_api)
 #target_link_libraries(manipulator_node rozum_api pthread dl)
 
 install(TARGETS
   nodo_pruebas
+  nodo_pruebas2
  # manipulator_node
   DESTINATION lib/${PROJECT_NAME})
 
 ament_target_dependencies(nodo_pruebas rclcpp dynamixel_sdk geometry_msgs std_msgs manipulator_msgs)
+ament_target_dependencies(nodo_pruebas2 rclcpp dynamixel_sdk geometry_msgs std_msgs manipulator_msgs)
 #ament_target_dependencies(manipulator_node dynamixel_sdk geometry_msgs std_msgs manipulator_msgs rclcpp)
 
 ament_package()

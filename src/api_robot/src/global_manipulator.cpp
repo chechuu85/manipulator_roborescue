@@ -24,12 +24,14 @@ GlobalManipulator::~GlobalManipulator() {
 void GlobalManipulator::init(char dyn_mode) {
     // Activar brazo Rozum
     arm->activate_all();
+    arm->set_velocity_limits_all();
     arm->setup_telemetry_cache_all();
 
     // Activar garra Dynamixel
+    claw->set_limits_all();
     claw->set_torque_all(true);
     claw->set_mode_all(dyn_mode); // VELOCITY O POSITION según necesidad
-    // claw->set_limits_all();
+
 
     // Iniciar el gestor de tareas en un hilo separado
     hilo_dynamixel = std::thread(&GlobalManipulator::gestor_tareas, this);

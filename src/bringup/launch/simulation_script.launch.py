@@ -73,8 +73,8 @@ def generate_launch_description():
     # ==========================================================
     api_real_robot = Node(
             package="api_robot",  
-            executable="nodo_pruebas",     
-            name="api_nodo_pruebas",      
+            executable="nodo_pruebas2",     
+            name="api_nodo_pruebas2",      
             output="screen",
             condition=IfCondition(PythonExpression(["'", sim_mode, "' == 'false'"])),
             parameters=[{'timer_period_ms': sampling_rate}] 

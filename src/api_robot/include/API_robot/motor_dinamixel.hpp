@@ -16,11 +16,9 @@ private:
     uint8_t id;
 
     // --- Limites del motor y escalas de unidades ---
-    const int MAX_VELOCITY = 233;           // Velocidad (rpm)
-    const float CONV_RPM_TO_TICK = 1/0.229; 
+    const float MAX_VELOCITY = 0.5;           // Velocidad (rpm)
     const int MAX_POSITION = 200;           // Posición (grados) Por definir
     const int MIN_POSITION = 0;             // Posición (grados) Por definir
-    const float CONV_DEG_TO_TICK = 1/0.088; // No se sabe si está bien o mal
 
     // --- Address table for Dynamixel --- 
     #define OPERATING_MODE 11
@@ -34,7 +32,7 @@ private:
     #define WRITE_VELOCITY_ADDRESS 104
     #define WRITE_POSITION_ADDRESS 116
     #define POSITION_LIMIT 4
-    #define VELOCITY_LIMIT 48
+    #define VELOCITY_LIMIT 44
     // 4096 pulsos es una vuelta
     const float CONV_PULS2RAD = (2.0 * M_PI / 4096.0);
     // 0.229 rpm por unidad. rad/s = rpm * (2*PI) / 60
