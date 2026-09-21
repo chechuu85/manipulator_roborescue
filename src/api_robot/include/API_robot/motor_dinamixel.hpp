@@ -14,11 +14,12 @@ private:
     dynamixel::PortHandler* portHandler;
     dynamixel::PacketHandler* packetHandler;
     uint8_t id;
+    float adapt_hardware;
 
     // --- Limites del motor y escalas de unidades ---
     const float MAX_VELOCITY = 0.5;           // Velocidad (rpm)
-    const int MAX_POSITION = 200;           // Posición (grados) Por definir
-    const int MIN_POSITION = 0;             // Posición (grados) Por definir
+    float MAX_POSITION;           // Posición (pulsos) Por definir
+    float MIN_POSITION;           // Posición (pulsos) Por definir
 
     // --- Address table for Dynamixel --- 
     #define OPERATING_MODE 11
@@ -47,7 +48,7 @@ public:
 
 
     // --- Constructor y destructor ---
-    DinamixelMotor(dynamixel::PortHandler* port, dynamixel::PacketHandler* packet, uint8_t motor_id);
+    DinamixelMotor(dynamixel::PortHandler* port, dynamixel::PacketHandler* packet, uint8_t motor_id, float adapt_hardware, float max_pos_input, float min_pos_input);
     ~DinamixelMotor();
 
     // --- Inicialización y Estado ---

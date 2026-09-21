@@ -6,9 +6,9 @@
 
 RozumArm::RozumArm(rr_can_interface_t* interface, int id_motor1, int id_motor2, int id_motor3)
     : iface(interface), 
-      motor1(interface, id_motor1), 
-      motor2(interface, id_motor2), 
-      motor3(interface, id_motor3) 
+      motor1(interface, id_motor1, 100, -100), 
+      motor2(interface, id_motor2, 100, -100), 
+      motor3(interface, id_motor3, 100, -100) 
 {
     if (iface == nullptr) {
         throw std::runtime_error("Error al inicializar RozumArm: La interfaz CAN es nula.");

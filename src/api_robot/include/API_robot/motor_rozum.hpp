@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdexcept>
 #include <math.h>
+#include <iostream>
 
 
 class RozumMotor {
@@ -17,8 +18,8 @@ private:
 
     // --- Limites del motor y escalas de unidades ---
     const float MAX_VELOCITY = 0.5;        // Velocidad (rpm) // 55 en apuntes
-    const int MAX_POSITION = 200;       // Posición (grados) Por definir
-    const int MIN_POSITION = 0;         // Posición (grados) Por definir
+    int MAX_POSITION;       // Posición (grados) Por definir
+    int MIN_POSITION;         // Posición (grados) Por definir
     const float CONV_DEG2RAD = (M_PI / 180.0f);
 
 
@@ -30,7 +31,7 @@ public:
 
 
     // --- Constructor y Destructor ---
-    RozumMotor(rr_can_interface_t* interface, int hardware_id);
+    RozumMotor(rr_can_interface_t* interface, int hardware_id, float max_pos_input, float min_pos_input);
     ~RozumMotor();
 
     // --- Inicialización y Estado ---
@@ -49,6 +50,8 @@ public:
     // void control_PID();
     void set_velocity(); // Sustituye a set_velocity_arm
     void set_position(); // Sustituye a set_position_arm
+    // Banderas para evitar spam en consola (independientes para cada motor)
+    bool limit_warning_shown = false;
 
 
     // --- Gestión de Hardware ---

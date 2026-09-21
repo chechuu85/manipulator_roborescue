@@ -27,7 +27,7 @@ public:
             std::cerr << "Error crítico: No se pudo configurar el baudrate a 57600." << std::endl;
         }
 
-        dyn_motor1 = std::make_shared<DinamixelMotor>(portHandler, packetHandler, 1);
+        dyn_motor1 = std::make_shared<DinamixelMotor>(portHandler, packetHandler, 1, 1, 100, -100);
         dyn_motor1->set_mode('v'); // Modo posición/velocidad
         dyn_motor1->set_velocity_limits();
         dyn_motor1->set_torque_state(true);
@@ -40,7 +40,7 @@ public:
             std::cerr << "Error al abrir la interfaz CAN de Rozum." << std::endl;
         }
 
-        rozum_motor1 = std::make_shared<RozumMotor>(can_iface, 125);
+        rozum_motor1 = std::make_shared<RozumMotor>(can_iface, 125, 100, -100);
         rozum_motor1->activate();
         rozum_motor1->set_velocity_limits();
         rozum_motor1->setup_telemetry_cache();

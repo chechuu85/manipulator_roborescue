@@ -5,13 +5,13 @@
 // ==========================================
 
 DynamixelClaw::DynamixelClaw(dynamixel::PortHandler* port, dynamixel::PacketHandler* packet, 
-                             uint8_t id1, uint8_t id2, uint8_t id3, uint8_t id5, uint8_t id12)
+                             uint8_t id1, uint8_t id2, uint8_t id3, uint8_t id4, uint8_t id5)
     : portHandler(port), packetHandler(packet),
-      motor1(port, packet, id1),
-      motor2(port, packet, id2),
-      motor3(port, packet, id3),
-      motor4(port, packet, id5),
-      motor5(port, packet, id12)
+      motor1(port, packet, id1, 1, 100, -100),
+      motor2(port, packet, id2, 1, 100, -100),
+      motor3(port, packet, id3, 0.5, 100, -100),
+      motor4(port, packet, id4, 0.1, 100, -100),
+      motor5(port, packet, id5, 0.1, 100, -100)
 {
     if (portHandler == nullptr || packetHandler == nullptr) {
         throw std::runtime_error("Error: Handlers de Dynamixel nulos en la inicialización de DynamixelClaw.");
