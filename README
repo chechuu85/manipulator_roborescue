@@ -156,3 +156,9 @@ ros2 launch manipulador_modu_moveit_config demo.launch.py use_rviz:=false
 ************************
 instalar gazebo
 https://jkk-research.github.io/workshops/f1tenth_sim_a/
+
+
+
+*******************************
+constructor para hacer rutas
+sudo apt install ros-humble-moveit-task-constructor-core

@@ -12,6 +12,8 @@ GlobalManipulator::GlobalManipulator(rr_can_interface_t* rozum_iface, dynamixel:
 }
 
 GlobalManipulator::~GlobalManipulator() {
+    // Primero se para el hilo (usa claw), después se destruyen los motores.
+    // El apagado de cada motor (torque off / pre-operacional) lo hace su propio destructor, una sola vez.
     deinit();
     delete arm;
     delete claw;
@@ -22,60 +24,68 @@ GlobalManipulator::~GlobalManipulator() {
 // ==========================================
 
 void GlobalManipulator::init(char dyn_mode) {
+    // Evitar lanzar un segundo hilo encima del primero (std::terminate)
+    if (hilo_dynamixel.joinable()) {
+        throw std::logic_error("GlobalManipulator::init() llamado dos veces.");
+    }
+
     // Activar brazo Rozum
     arm->activate_all();
     arm->set_velocity_limits_all();
     arm->setup_telemetry_cache_all();
 
     // Activar garra Dynamixel
-    claw->set_limits_all();
-    claw->set_torque_all(true);
-    claw->set_mode_all(dyn_mode); // VELOCITY O POSITION según necesidad
 
+    claw->set_limits_all();
+    claw->set_mode_all(dyn_mode); // VELOCITY O POSITION según necesidad
+    claw->set_torque_all(true);
 
     // Iniciar el gestor de tareas en un hilo separado
+    {
+        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
+        comando_actual_ = tarea_dynamixel::SLEEPING;
+    }
     hilo_dynamixel = std::thread(&GlobalManipulator::gestor_tareas, this);
 }
 
 void GlobalManipulator::deinit() {
+    // Si el hilo no está corriendo (no se llamó a init o ya se hizo deinit) no hay nada que parar
+    if (!hilo_dynamixel.joinable()) return;
+
     // Avisar al hilo para que se apague
     {
         std::lock_guard<std::mutex> lock(mtx_sincronizacion);
         comando_actual_ = tarea_dynamixel::POWER_OFF;
     }
     cv_iniciar_tarea_.notify_one();
-    
-    // Esperar a que el hilo termine[cite: 2]
-    if (hilo_dynamixel.joinable()) {
-        hilo_dynamixel.join();
-    }
 
-    // Apagar torque de la garra por seguridad
-    claw->set_torque_all(false);
+    // Esperar a que el hilo termine
+    hilo_dynamixel.join();
 }
 
 void GlobalManipulator::gestor_tareas() {
     // Máquina de estados en bucle para el hilo de Dynamixel
     while (true) {
         std::unique_lock<std::mutex> lock(mtx_sincronizacion);
-        
-        // 1. DORMIR hasta que el comando sea distinto de 'SLEEPING'
-        cv_iniciar_tarea_.wait(lock, [this]{ 
-            return comando_actual_ != tarea_dynamixel::SLEEPING; 
+
+        // DORMIR hasta que el comando sea distinto de 'SLEEPING'
+        cv_iniciar_tarea_.wait(lock, [this]{
+            return comando_actual_ != tarea_dynamixel::SLEEPING;
         });
-        
+
         // Si se apagan los motores, rompemos el bucle infinito
         if (comando_actual_ == tarea_dynamixel::POWER_OFF) break;
 
-        // 2. DESPERTAR Y TRABAJAR: Soltamos el candado para no bloquear el hilo principal
+        //  DESPERTAR Y TRABAJAR: Soltamos el candado para no bloquear el hilo principal
         tarea_dynamixel tarea_a_ejecutar = comando_actual_;
-        lock.unlock(); 
-        
+        lock.unlock();
+
         // --- LA MÁQUINA DE ESTADOS (Solo afecta a la garra Dynamixel) ---
+        std::exception_ptr error_tarea = nullptr;
         try {
             switch (tarea_a_ejecutar) {
                 case tarea_dynamixel::READ_ALL_PARAMETERS:
-                    claw->read_all_parameters(); 
+                    claw->read_all_parameters();
                     break;
                 case tarea_dynamixel::READ_POSITION:
                     claw->read_positions();
@@ -92,25 +102,77 @@ void GlobalManipulator::gestor_tareas() {
                 case tarea_dynamixel::SEND_VELOCITY:
                     // La velocidad ya se guardó en claw->motorX.actuation_motor.velocity antes de llamar aquí
                     // Por lo que podemos disparar el sync write extrayéndolas directamente.
-                    claw->set_velocities({claw->motor1.actuation_motor.velocity, claw->motor2.actuation_motor.velocity, 
+                    claw->set_velocities({claw->motor1.actuation_motor.velocity, claw->motor2.actuation_motor.velocity,
                                           claw->motor3.actuation_motor.velocity, claw->motor4.actuation_motor.velocity, claw->motor5.actuation_motor.velocity});
                     break;
                 case tarea_dynamixel::SEND_POSITION:
-                    claw->set_positions({claw->motor1.actuation_motor.position, claw->motor2.actuation_motor.position, 
+                    claw->set_positions({claw->motor1.actuation_motor.position, claw->motor2.actuation_motor.position,
                                          claw->motor3.actuation_motor.position, claw->motor4.actuation_motor.position, claw->motor5.actuation_motor.position});
                     break;
                 default:
                     break;
             }
-        } catch (const std::exception& e) {
-            std::cerr << "Error en gestor_tareas (Dynamixel): " << e.what() << std::endl;
+        } catch (...) {
+            // Se guarda la excepción para relanzarla en el hilo principal
+            error_tarea = std::current_exception();
         }
-        
-        // 3. AVISAR: Volvemos a coger el candado e informamos que terminamos
+
+        //  AVISAR: Volvemos a coger el candado e informamos que terminamos
         lock.lock();
-        comando_actual_ = tarea_dynamixel::SLEEPING; // Volvemos al estado base
+        error_dynamixel_ = error_tarea;
+        // Solo se vuelve a SLEEPING si nadie ha cambiado el comando mientras trabajábamos 
+        if (comando_actual_ == tarea_a_ejecutar) {
+            comando_actual_ = tarea_dynamixel::SLEEPING;
+        }
         tarea_completada_ = true;
         cv_tarea_terminada_.notify_one();
+    }
+}
+
+void GlobalManipulator::ejecutar_en_paralelo(tarea_dynamixel tarea, const std::function<void()>& tarea_brazo) {
+    // Sin hilo (antes de init o después de deinit) nos quedaríamos esperando para siempre
+    if (!hilo_dynamixel.joinable()) {
+        throw std::logic_error("GlobalManipulator: el hilo Dynamixel no está activo (falta init() o ya se hizo deinit()).");
+    }
+
+    // Notificar al hilo secundario (Garra) para que empiece su tarea
+    {
+        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
+        comando_actual_ = tarea;
+        tarea_completada_ = false;
+        error_dynamixel_ = nullptr;
+    }
+    cv_iniciar_tarea_.notify_one();
+
+    //   Ejecutar la tarea del brazo en el hilo principal (Rozum).
+    //   Si falla, se guarda la excepción pero NO se sale todavía: hay que esperar a la garra.
+    std::exception_ptr error_brazo = nullptr;
+    try {
+        tarea_brazo();
+    } catch (...) {
+        error_brazo = std::current_exception();
+    }
+
+    // Esperar SIEMPRE a que la garra termine para continuar sincronizados
+    std::exception_ptr error_garra = nullptr;
+    {
+        std::unique_lock<std::mutex> lock(mtx_sincronizacion);
+        cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
+        error_garra = error_dynamixel_;
+        error_dynamixel_ = nullptr;
+    }
+
+    // Relanzar los errores en el hilo principal. Si fallan los dos, se lanza el del brazo y se informa del de la garra
+    if (error_brazo) {
+        if (error_garra) {
+            try { std::rethrow_exception(error_garra); }
+            catch (const std::exception& e) { std::cerr << "Error en la garra (Dynamixel): " << e.what() << std::endl; }
+            catch (...) { std::cerr << "Error desconocido en la garra (Dynamixel)" << std::endl; }
+        }
+        std::rethrow_exception(error_brazo);
+    }
+    if (error_garra) {
+        std::rethrow_exception(error_garra);
     }
 }
 
@@ -118,115 +180,35 @@ void GlobalManipulator::gestor_tareas() {
 // FUNCIONES DE CONTROL PARALELO
 // ==========================================
 void GlobalManipulator::read_all_parameters() {
-    // 1. Notificar al hilo secundario (Garra) para que empiece su lectura general
-    {
-        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
-        comando_actual_ = tarea_dynamixel::READ_ALL_PARAMETERS; 
-        tarea_completada_ = false;
-    }
-    cv_iniciar_tarea_.notify_one();
-
-    // 2. Ejecutar la tarea del brazo en el hilo principal (Rozum)
-    arm->read_all_parameters(); 
-
-    // 3. Esperar a que la garra termine para continuar sincronizados
-    {
-        std::unique_lock<std::mutex> lock(mtx_sincronizacion);
-        cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
-    }
+    ejecutar_en_paralelo(tarea_dynamixel::READ_ALL_PARAMETERS, [this]{ arm->read_all_parameters(); });
 }
 
 void GlobalManipulator::read_positions() {
-    // Notificar al hilo secundario (Garra)
-    {
-        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
-        comando_actual_ = tarea_dynamixel::READ_POSITION;
-        tarea_completada_ = false;
-    }
-    cv_iniciar_tarea_.notify_one();
-
-    // Ejecutar la tarea del brazo en el hilo principal (Rozum)
-    arm->read_positions();
-
-    // Esperar a que la garra termine para continuar sincronizados
-    {
-        std::unique_lock<std::mutex> lock(mtx_sincronizacion);
-        cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
-    }
+    ejecutar_en_paralelo(tarea_dynamixel::READ_POSITION, [this]{ arm->read_positions(); });
 }
 
 void GlobalManipulator::read_velocities() {
-    {
-        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
-        comando_actual_ = tarea_dynamixel::READ_VELOCITY;
-        tarea_completada_ = false;
-    }
-    cv_iniciar_tarea_.notify_one();
-
-    arm->read_velocities(); // Lectura síncrona Rozum
-
-    {
-        std::unique_lock<std::mutex> lock(mtx_sincronizacion);
-        cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
-    }
+    ejecutar_en_paralelo(tarea_dynamixel::READ_VELOCITY, [this]{ arm->read_velocities(); });
 }
 
 void GlobalManipulator::read_currents() {
-    {
-        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
-        comando_actual_ = tarea_dynamixel::READ_CURRENT;
-        tarea_completada_ = false;
-    }
-    cv_iniciar_tarea_.notify_one();
-
-    arm->read_currents(); 
-
-    {
-        std::unique_lock<std::mutex> lock(mtx_sincronizacion);
-        cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
-    }
+    ejecutar_en_paralelo(tarea_dynamixel::READ_CURRENT, [this]{ arm->read_currents(); });
 }
 
 void GlobalManipulator::read_temperatures() {
-    {
-        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
-        comando_actual_ = tarea_dynamixel::READ_TEMPERATURE;
-        tarea_completada_ = false;
-    }
-    cv_iniciar_tarea_.notify_one();
-
-    arm->read_temperatures(); 
-
-    {
-        std::unique_lock<std::mutex> lock(mtx_sincronizacion);
-        cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
-    }
+    ejecutar_en_paralelo(tarea_dynamixel::READ_TEMPERATURE, [this]{ arm->read_temperatures(); });
 }
 
 void GlobalManipulator::set_velocities(const std::array<double, 3>& arm_vels, const std::array<double, 5>& claw_vels) {
-    // Precargamos los valores de actuación para la garra antes de disparar el hilo
+    // Precargamos los valores de actuación para la garra antes de disparar el hilo.
+    // Es seguro: ejecutar_en_paralelo siempre espera a la garra, así que el hilo Dynamixel está dormido aquí.
     claw->motor1.actuation_motor.velocity = claw_vels[0];
     claw->motor2.actuation_motor.velocity = claw_vels[1];
     claw->motor3.actuation_motor.velocity = claw_vels[2];
     claw->motor4.actuation_motor.velocity = claw_vels[3];
     claw->motor5.actuation_motor.velocity = claw_vels[4];
 
-    // Despertamos el hilo de transmisión
-    {
-        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
-        comando_actual_ = tarea_dynamixel::SEND_VELOCITY;
-        tarea_completada_ = false;
-    }
-    cv_iniciar_tarea_.notify_one();
-
-    // Transmitimos a Rozum
-    arm->set_velocities(arm_vels);
-
-    // Esperamos a Dynamixel
-    {
-        std::unique_lock<std::mutex> lock(mtx_sincronizacion);
-        cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
-    }
+    ejecutar_en_paralelo(tarea_dynamixel::SEND_VELOCITY, [this, &arm_vels]{ arm->set_velocities(arm_vels); });
 }
 
 void GlobalManipulator::set_positions(const std::array<double, 3>& arm_pos, const std::array<double, 5>& claw_pos) {
@@ -237,19 +219,7 @@ void GlobalManipulator::set_positions(const std::array<double, 3>& arm_pos, cons
     claw->motor4.actuation_motor.position = claw_pos[3];
     claw->motor5.actuation_motor.position = claw_pos[4];
 
-    {
-        std::lock_guard<std::mutex> lock(mtx_sincronizacion);
-        comando_actual_ = tarea_dynamixel::SEND_POSITION;
-        tarea_completada_ = false;
-    }
-    cv_iniciar_tarea_.notify_one();
-
-    arm->set_positions(arm_pos);
-
-    {
-        std::unique_lock<std::mutex> lock(mtx_sincronizacion);
-        cv_tarea_terminada_.wait(lock, [this]{ return tarea_completada_; });
-    }
+    ejecutar_en_paralelo(tarea_dynamixel::SEND_POSITION, [this, &arm_pos]{ arm->set_positions(arm_pos); });
 }
 
 

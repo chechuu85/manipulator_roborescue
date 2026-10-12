@@ -71,7 +71,14 @@ private:
     void cmd_callback(const manipulator_msgs::msg::HiperJointState::SharedPtr msg) {
         // Enviar posición al Dynamixel
         // dyn_motor1->actuation_motor.position = msg->joint_state_command.position[3];
-        // dyn_motor1->set_position(nullptr); 
+        // dyn_motor1->set_position(nullptr);
+
+        // Comprobar que llegan al menos 4 velocidades (se usan los índices 0 y 3)
+        if (msg->joint_state_command.velocity.size() < 4) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                "Comando ignorado: se esperaban al menos 4 velocidades y llegaron %zu", msg->joint_state_command.velocity.size());
+            return;
+        }
 
         dyn_motor1->actuation_motor.velocity = msg->joint_state_command.velocity[3];
         dyn_motor1->set_velocity(nullptr);

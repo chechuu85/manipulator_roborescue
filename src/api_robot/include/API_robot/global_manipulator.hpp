@@ -9,6 +9,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <array>
+#include <exception>
+#include <functional>
 //#include <atomic>
 //#include <chrono>
 
@@ -39,9 +41,13 @@ private:
     
     tarea_dynamixel comando_actual_ = tarea_dynamixel::SLEEPING;
     bool tarea_completada_ = false;
+    std::exception_ptr error_dynamixel_;   // Excepción capturada en el hilo Dynamixel para relanzarla en el principal
 
     // Bucle infinito del hilo secundario
     void gestor_tareas();
+
+    // Despierta al hilo Dynamixel con una tarea, ejecuta la parte del brazo y espera a la garra
+    void ejecutar_en_paralelo(tarea_dynamixel tarea, const std::function<void()>& tarea_brazo);
 
     // Callback para leer y publicar el estado de los motores
     void publish_telemetry_callback();
@@ -58,7 +64,7 @@ public:
 
     // --- Inicialización ---
     void init(char dyn_mode);
-    void deinit();
+    void deinit();   // Detiene el hilo Dynamixel. Idempotente: se puede llamar varias veces
 
     // --- Lectura de Variables Síncrona ---
     // Ejecutan la lectura del brazo en el hilo principal y la garra en el secundario

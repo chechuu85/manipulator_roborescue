@@ -19,13 +19,8 @@ DynamixelClaw::DynamixelClaw(dynamixel::PortHandler* port, dynamixel::PacketHand
 }
 
 DynamixelClaw::~DynamixelClaw() {
-    // Apagamos el torque por seguridad al destruir el objeto
-    set_torque_all(false); 
-    // try {
-    //     set_torque_all(false); 
-    // } catch (...) {
-    //     // Suprimir excepciones en el destructor
-    // }
+    // El torque se quita en el destructor de cada DinamixelMotor (motor5 ... motor1), que se ejecuta
+    // automáticamente después de este. Así se envía una sola vez por motor.
 }
 
 // ==========================================

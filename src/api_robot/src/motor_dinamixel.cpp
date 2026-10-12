@@ -8,13 +8,21 @@ DinamixelMotor::DinamixelMotor(dynamixel::PortHandler* port, dynamixel::PacketHa
     float max_pos_input, float min_pos_input)
     : portHandler(port), packetHandler(packet), id(motor_id), adapt_hardware(adapt_hardware) // se guardan las variables dentro de las privadas
     {
-        MAX_POSITION = max_pos_input / CONV_PULS2RAD;
-        MIN_POSITION = min_pos_input / CONV_PULS2RAD;
+        // Límites en pulsos del motor. Se divide también por adapt_hardware para que estén en la misma
+        // escala que los pulsos que se calculan en set_position y set_velocity
+        MAX_POSITION = max_pos_input / (CONV_PULS2RAD * adapt_hardware);
+        MIN_POSITION = min_pos_input / (CONV_PULS2RAD * adapt_hardware);
     }
 
 DinamixelMotor::~DinamixelMotor() {
-    // Relajar el motor cuando se apage 
-    set_torque_state(false);
+    // Relajar el motor cuando se apague. Único punto donde se quita el torque al cerrar.
+    // Un destructor no puede dejar escapar excepciones (llamaría a std::terminate y no se apagarían
+    // el resto de motores), así que se capturan aquí y solo se informa.
+    try {
+        set_torque_state(false);
+    } catch (const std::exception& e) {
+        std::cerr << "[APAGADO] No se pudo quitar el torque del motor Dynamixel " << static_cast<int>(id) << ": " << e.what() << std::endl;
+    }
 }
 
 
@@ -55,8 +63,15 @@ void DinamixelMotor::set_mode(char mode) {
     }
 
     // Cambiar el modo de operación y comprobar si funciona
-    if (packetHandler->write1ByteTxRx(portHandler, id, OPERATING_MODE, selected_mode) != COMM_SUCCESS) {
-        throw std::runtime_error("Fail to change operating mode to " + mode_name + " mode of motor " + std::to_string(id));
+    uint8_t dxl_error = 0;
+    int dxl_comm_result = packetHandler->write1ByteTxRx(portHandler, id, OPERATING_MODE, selected_mode, &dxl_error);
+
+    if (dxl_comm_result != COMM_SUCCESS) {
+        throw std::runtime_error("Error de comunicación al cambiar al modo " + mode_name + " el motor " + std::to_string(this->id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
+    }
+    if (dxl_error != 0) {
+        // Típicamente Access Error: Operating Mode está en EEPROM y no se puede escribir con el torque activado
+        throw std::runtime_error("El motor devolvió un error al cambiar al modo " + mode_name + ". Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
     }
 }
 
@@ -89,7 +104,7 @@ void DinamixelMotor::read_all_parameters(dynamixel::GroupSyncRead* groupSyncRead
             // Extracción de datos desde el búfer de memoria RAM
             telemetry_motor.position = static_cast<float>(static_cast<int32_t>(groupSyncRead->getData(id, READ_POSITION_ADDRESS, 4))) * CONV_PULS2RAD * adapt_hardware;
             telemetry_motor.velocity = static_cast<float>(static_cast<int32_t>(groupSyncRead->getData(id, READ_VELOCITY_ADDRESS, 4))) * CONV_PULS2RADS * adapt_hardware;
-            telemetry_motor.current = static_cast<int16_t>(groupSyncRead->getData(id, READ_CURRENT_ADDRESS, 2));
+            telemetry_motor.current = static_cast<int16_t>(std::round(static_cast<int16_t>(groupSyncRead->getData(id, READ_CURRENT_ADDRESS, 2)) * CONV_CURRENT2MA));
             telemetry_motor.temperature = static_cast<int8_t>(groupSyncRead->getData(id, READ_TEMPERATURE_ADDRESS, 1));
             
         } else {
@@ -145,7 +160,7 @@ void DinamixelMotor::read_all_parameters(dynamixel::GroupSyncRead* groupSyncRead
         // Asignación con los casteos correctos definidos en DinamixelMotorData
         telemetry_motor.position = static_cast<float>(static_cast<int32_t>(raw_position)) * CONV_PULS2RAD * adapt_hardware;
         telemetry_motor.velocity = static_cast<float>(static_cast<int32_t>(raw_velocity)) * CONV_PULS2RADS * adapt_hardware;
-        telemetry_motor.current = static_cast<int16_t>(raw_current);
+        telemetry_motor.current = static_cast<int16_t>(std::round(static_cast<int16_t>(raw_current) * CONV_CURRENT2MA));
         telemetry_motor.temperature = static_cast<int8_t>(raw_temperature);
     }
 }
@@ -215,7 +230,7 @@ void DinamixelMotor::read_current(dynamixel::GroupSyncRead* groupSyncRead) {
     if (groupSyncRead != nullptr) {
         
         if (groupSyncRead->isAvailable(id, READ_CURRENT_ADDRESS, 2)) {
-            telemetry_motor.current = static_cast<int16_t>(groupSyncRead->getData(id, READ_CURRENT_ADDRESS, 2));
+            telemetry_motor.current = static_cast<int16_t>(std::round(static_cast<int16_t>(groupSyncRead->getData(id, READ_CURRENT_ADDRESS, 2)) * CONV_CURRENT2MA));
         } else {
             throw std::runtime_error("Error: Datos de corriente no disponibles en el paquete para el motor " + std::to_string(this->id));
         }
@@ -236,7 +251,7 @@ void DinamixelMotor::read_current(dynamixel::GroupSyncRead* groupSyncRead) {
             throw std::runtime_error("El motor devolvió un error al leer la posición. Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
         }
 
-        telemetry_motor.current = static_cast<int16_t>(raw_current);
+        telemetry_motor.current = static_cast<int16_t>(std::round(static_cast<int16_t>(raw_current) * CONV_CURRENT2MA));
     }
 }
 
@@ -294,12 +309,18 @@ void DinamixelMotor::read_torque_state() {
 // ==========================================
 
 void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
-    // Limites en software para evitar que el motor se mueva fuera de su rango 
-    // if (actuation_motor.velocity > 0 && (actuation_motor.position > MAX_POSITION || actuation_motor.position < MIN_POSITION)){
-    //     actuation_motor.velocity = 0;
-    // }
+    // Última red de seguridad: saturar a ±MAX_VELOCITY (rad/s en la articulación). Si se supera el
+    // Velocity Limit el motor rechaza la orden y sigue con la anterior
+    float target_vel = std::clamp(static_cast<float>(actuation_motor.velocity), -MAX_VELOCITY, MAX_VELOCITY);
 
-    int32_t vel_ticks = static_cast<int32_t>(std::round(actuation_motor.velocity / (CONV_PULS2RADS * adapt_hardware)));
+    // Limites en software para evitar que el motor se mueva fuera de su rango. Se usa la posición
+    // medida (telemetría) en pulsos y solo se bloquea la velocidad que aleja del rango, para poder volver
+    float current_pos_ticks = telemetry_motor.position / (CONV_PULS2RAD * adapt_hardware);
+    if ((current_pos_ticks >= MAX_POSITION && target_vel > 0.0f) || (current_pos_ticks <= MIN_POSITION && target_vel < 0.0f)) {
+        target_vel = 0.0f;
+    }
+
+    int32_t vel_ticks = static_cast<int32_t>(std::round(target_vel / (CONV_PULS2RADS * adapt_hardware)));
 
     // Según si está usando BultWrite o no, se envía con el método BultWrite o con el método individual
     if (groupSyncWrite != nullptr) {
@@ -321,7 +342,7 @@ void DinamixelMotor::set_velocity(dynamixel::GroupSyncWrite* groupSyncWrite) {
 
     } else {
         uint8_t dxl_error = 0;
-        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_VELOCITY_ADDRESS, vel_ticks);
+        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_VELOCITY_ADDRESS, vel_ticks, &dxl_error);
         
         if (dxl_comm_result != COMM_SUCCESS) {
             throw std::runtime_error("Error de comunicación al enviar velocidad al motor " + std::to_string(id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
@@ -357,7 +378,7 @@ void DinamixelMotor::set_position(dynamixel::GroupSyncWrite* groupSyncWrite) {
     } else {
         uint8_t dxl_error = 0;
 
-        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_POSITION_ADDRESS, pos_ticks);
+        int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, WRITE_POSITION_ADDRESS, pos_ticks, &dxl_error);
         
         if (dxl_comm_result != COMM_SUCCESS) {
             throw std::runtime_error("Error de comunicación al enviar posición al motor " + std::to_string(id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
@@ -377,7 +398,7 @@ void DinamixelMotor::set_position_limits() {
     uint8_t dxl_error = 0;
 
     // Utilizamos MAX_POSITION (está en int igual hay adaptarlo a 32 bits escalarlo a los ticks ). 
-    int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, POSITION_LIMIT, max_pos_ticks);
+    int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, POSITION_LIMIT, max_pos_ticks, &dxl_error);
 
     // Validar escritura
     if (dxl_comm_result != COMM_SUCCESS) { 
@@ -387,15 +408,26 @@ void DinamixelMotor::set_position_limits() {
         throw std::runtime_error("El motor devolvió un error al establecer el límite MAX de posición. Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
     }
 
+    // Límite mínimo de posición (dirección 52). Se pasa por int32_t porque MIN_POSITION puede ser negativo
+    uint32_t min_pos_ticks = static_cast<uint32_t>(static_cast<int32_t>(MIN_POSITION));
+    dxl_error = 0;
 
-    // Poner también pos mínima si mi motor lo soporta
+    dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, MIN_POSITION_LIMIT, min_pos_ticks, &dxl_error);
+
+    // Validar escritura
+    if (dxl_comm_result != COMM_SUCCESS) {
+        throw std::runtime_error("Error de comunicación al establecer el límite MIN de posición del motor " + std::to_string(this->id) + ": " + packetHandler->getTxRxResult(dxl_comm_result));
+    }
+    if (dxl_error != 0) {
+        throw std::runtime_error("El motor devolvió un error al establecer el límite MIN de posición. Motor " + std::to_string(this->id) + ": " + packetHandler->getRxPacketError(dxl_error));
+    }
 }
 
 void DinamixelMotor::set_velocity_limits() { 
     uint32_t velocity_ticks = static_cast<uint32_t>(std::round(MAX_VELOCITY / (CONV_PULS2RADS * adapt_hardware)));
     uint8_t dxl_error = 0;
 
-    int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, VELOCITY_LIMIT, velocity_ticks);
+    int dxl_comm_result = packetHandler->write4ByteTxRx(portHandler, id, VELOCITY_LIMIT, velocity_ticks, &dxl_error);
 
     // Validar comunicación y hardware
     if (dxl_comm_result != COMM_SUCCESS) {

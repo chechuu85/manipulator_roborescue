@@ -44,12 +44,16 @@ add_custom_target(rozum_api_build ALL
 
 
 # Exponer la librería de Rozum al resto del paquete
-add_library(rozum_api SHARED IMPORTED GLOBAL)
+# Se enlaza la versión estática (.a): el código de la API queda dentro del ejecutable y no depende
+# de la ruta de la .so al ejecutarse (la .so no tiene SONAME y se guardaba con ruta absoluta)
+add_library(rozum_api STATIC IMPORTED GLOBAL)
 set_target_properties(rozum_api PROPERTIES
-  IMPORTED_LOCATION "${ROZUM_API_SO}"
+  IMPORTED_LOCATION "${ROZUM_API_LIB}"
   INTERFACE_INCLUDE_DIRECTORIES "${ROZUM_API_ROOT}/include;${ROZUM_API_ROOT}/src"
-  INTERFACE_LINK_LIBRARIES Threads::Threads
+  INTERFACE_LINK_LIBRARIES "Threads::Threads;m"   # La API usa pthread y sqrt (libm)
 )
+# Cualquier ejecutable que enlace con rozum_api espera a que el Makefile de Rozum haya generado la librería
+add_dependencies(rozum_api rozum_api_build)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

@@ -33,10 +33,17 @@ def generate_launch_description():
         description='Elige el controlador: "keyboard" o "joystick"'
     )
 
+    cmd_timeout_arg = DeclareLaunchArgument(
+        'cmd_timeout_ms',
+        default_value='500',
+        description='Tiempo en ms sin recibir comandos tras el cual el robot real pone todas las velocidades a 0 (watchdog)'
+    )
+
     # Crear variables de configuración que referencian los argumentos en tiempo de ejecución
     sim_mode = LaunchConfiguration('sim_mode')
     sampling_rate = LaunchConfiguration('sampling_rate')
     input_type = LaunchConfiguration('input_type')
+    cmd_timeout_ms = LaunchConfiguration('cmd_timeout_ms')
 
 
     #===========================================================
@@ -77,7 +84,8 @@ def generate_launch_description():
             name="api_nodo_pruebas2",      
             output="screen",
             condition=IfCondition(PythonExpression(["'", sim_mode, "' == 'false'"])),
-            parameters=[{'timer_period_ms': sampling_rate}] 
+            parameters=[{'timer_period_ms': sampling_rate},
+                        {'cmd_timeout_ms': cmd_timeout_ms}]
 
         )
   
@@ -160,6 +168,7 @@ def generate_launch_description():
         sim_mode_arg,         
         sampling_rate_arg,
         input_type_arg,
+        cmd_timeout_arg,
 
         #Lanza los nodos
         LogInfo(msg="--------------------------------------------------------------------------------"),

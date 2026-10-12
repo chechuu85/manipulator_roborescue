@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <vector>
 #include <math.h>
+#include <algorithm>
+#include <iostream>
 
 class DinamixelMotor {
 private:
@@ -32,12 +34,15 @@ private:
     #define READ_TEMPERATURE_ADDRESS 146
     #define WRITE_VELOCITY_ADDRESS 104
     #define WRITE_POSITION_ADDRESS 116
-    #define POSITION_LIMIT 4
+    #define POSITION_LIMIT 48
+    #define MIN_POSITION_LIMIT 52
     #define VELOCITY_LIMIT 44
     // 4096 pulsos es una vuelta
     const float CONV_PULS2RAD = (2.0 * M_PI / 4096.0);
     // 0.229 rpm por unidad. rad/s = rpm * (2*PI) / 60
     const float CONV_PULS2RADS = 0.229 * (2.0 * M_PI / 60.0);
+    // XL330: 1 mA por unidad (en XM430/XM540 sería 2.69 mA)
+    const float CONV_CURRENT2MA = 1.0f;
 
 public:
 

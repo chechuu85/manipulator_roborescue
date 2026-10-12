@@ -52,13 +52,18 @@ RozumMotor::~RozumMotor(){
  }
 
 void RozumMotor::setup_telemetry_cache(){
-    if (motor == nullptr) return; // Seguridad primero
+    if (motor == nullptr) {
+        throw std::runtime_error("Error: Puntero nulo al intentar configurar la caché del motor Rozum con ID: " + std::to_string(id));
+    }
 
-    // Mantener actualizados los valores en memoria caché del motor para lectura rápida
-    rr_param_cache_setup_entry(motor, APP_PARAM_POSITION, true);    
-    rr_param_cache_setup_entry(motor, APP_PARAM_VELOCITY, true);
-    rr_param_cache_setup_entry(motor, APP_PARAM_CURRENT_INPUT, true);
-    rr_param_cache_setup_entry(motor, APP_PARAM_TEMPERATURE_ACTUATOR, true);
+    // Mantener actualizados los valores en memoria caché del motor para lectura rápida y comprobar que se configuran bien
+    if (rr_param_cache_setup_entry(motor, APP_PARAM_POSITION, true) != RET_OK ||
+        rr_param_cache_setup_entry(motor, APP_PARAM_VELOCITY, true) != RET_OK ||
+        rr_param_cache_setup_entry(motor, APP_PARAM_CURRENT_INPUT, true) != RET_OK ||
+        rr_param_cache_setup_entry(motor, APP_PARAM_TEMPERATURE_ELECTRONICS, true) != RET_OK) {
+
+        throw std::runtime_error("Error al configurar la caché de telemetría del motor Rozum con ID: " + std::to_string(id));
+    }
 
     // Tambien existe la dirección APP_PARAM_POSITION_ROTOR..., que es la posición del rotor
 }
@@ -90,14 +95,14 @@ void RozumMotor::read_all_parameters(){
     if (rr_read_cached_parameter(motor, APP_PARAM_POSITION, &temp_position) != RET_OK ||
         rr_read_cached_parameter(motor, APP_PARAM_VELOCITY, &temp_velocity) != RET_OK ||
         rr_read_cached_parameter(motor, APP_PARAM_CURRENT_INPUT, &temp_current) != RET_OK ||
-        rr_read_cached_parameter(motor, APP_PARAM_TEMPERATURE_ACTUATOR, &temp_temperature) != RET_OK) {
+        rr_read_cached_parameter(motor, APP_PARAM_TEMPERATURE_ELECTRONICS , &temp_temperature) != RET_OK) {
         
         throw std::runtime_error("Error: No se pudieron extraer los parámetros de la caché del motor Rozum.");
     }
     // Puede ser que no entregue los datos correctamente
     telemetry_motor.position = temp_position * CONV_DEG2RAD;
     telemetry_motor.velocity = temp_velocity * CONV_DEG2RAD;
-    telemetry_motor.current = static_cast<int16_t>(temp_current);
+    telemetry_motor.current = static_cast<int16_t>(std::round(temp_current * CONV_A2MA));
     telemetry_motor.temperature = static_cast<int8_t>(temp_temperature);
 }
 
@@ -125,13 +130,13 @@ void RozumMotor::read_current() {
     if (rr_read_cached_parameter(motor, APP_PARAM_CURRENT_INPUT, &temp_current) != RET_OK) {
         throw std::runtime_error("Error: Fallo al leer la corriente de la caché.");
     }
-    telemetry_motor.current = static_cast<int16_t>(temp_current);
+    telemetry_motor.current = static_cast<int16_t>(std::round(temp_current * CONV_A2MA));
 }
 
 void RozumMotor::read_temperature() {
     // Antes de leer los parámetros, usar update_cache() para asegurarse de que los datos estén actualizados
     float temp_temperature = 0.0f;
-    if (rr_read_cached_parameter(motor, APP_PARAM_TEMPERATURE_ACTUATOR, &temp_temperature) != RET_OK) {
+    if (rr_read_cached_parameter(motor, APP_PARAM_TEMPERATURE_ELECTRONICS , &temp_temperature) != RET_OK) {
         throw std::runtime_error("Error: Fallo al leer la temperatura de la caché.");
     }
     telemetry_motor.temperature = static_cast<int8_t>(temp_temperature);
@@ -147,14 +152,17 @@ void RozumMotor::set_velocity(){
     }
     
     // Enviar el comando de velocidad y comprobar si falla 
-    float target_vel_deg = actuation_motor.velocity / CONV_DEG2RAD;
+    // Última red de seguridad: saturar a ±MAX_VELOCITY (rad/s) antes de pasar a grados/s
+    // Limita velocidad máxima
+    float target_vel_deg = std::clamp(static_cast<float>(actuation_motor.velocity), -MAX_VELOCITY, MAX_VELOCITY) / CONV_DEG2RAD;
+    // Limita velocidad según posición
     float current_pos_deg = telemetry_motor.position / CONV_DEG2RAD;
 
     if ((current_pos_deg >= (float)MAX_POSITION && target_vel_deg > 0.0f) || (current_pos_deg <= (float)MIN_POSITION && target_vel_deg < 0.0f)){
         target_vel_deg = 0.0f;
 
         if (!limit_warning_shown) {
-            std::cerr << "[SEGURIDAD] Motor " << std::to_string(id) << " en límite MÁXIMO. Vel bloqueada." << std::endl;
+            std::cerr << "[SEGURIDAD] Motor " << std::to_string(id) << " en límite " << (current_pos_deg >= (float)MAX_POSITION ? "MÁXIMO" : "MÍNIMO") << ". Vel bloqueada." << std::endl;
             limit_warning_shown = true;
             
         }

@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <math.h>
 #include <iostream>
+#include <algorithm>
 
 
 class RozumMotor {
@@ -21,6 +22,7 @@ private:
     int MAX_POSITION;       // Posición (grados) Por definir
     int MIN_POSITION;         // Posición (grados) Por definir
     const float CONV_DEG2RAD = (M_PI / 180.0f);
+    const float CONV_A2MA = 1000.0f;           // La API da la corriente en A y se publica en mA
 
 
 public:

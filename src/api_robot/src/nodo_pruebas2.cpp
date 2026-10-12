@@ -23,7 +23,7 @@ public:
         if (!portHandler->openPort()) {
             std::cerr << "Error crítico: No se pudo abrir el puerto serial." << std::endl;
         }
-        if (!portHandler->setBaudRate(57600)) {
+        if (!portHandler->setBaudRate(1000000)) {
             std::cerr << "Error crítico: No se pudo configurar el baudrate a 57600." << std::endl;
         }
 
@@ -92,6 +92,14 @@ public:
         // Timer para publicar el estado de todos los motores (ej. a 10 Hz)
         timer_ = this->create_wall_timer(std::chrono::milliseconds(timer_period_ms),
             std::bind(&RobotTestNode::publish_state, this));
+
+        // Watchdog: temporizador con periodo = cmd_timeout_ms que se reinicia con cada comando válido.
+        // Solo llega a dispararse si pasa cmd_timeout_ms sin comandos, y entonces manda velocidades a 0
+        this->declare_parameter<int>("cmd_timeout_ms", 500);
+        this->get_parameter("cmd_timeout_ms", cmd_timeout_ms);
+        watchdog_timer_ = this->create_wall_timer(std::chrono::milliseconds(cmd_timeout_ms),
+            std::bind(&RobotTestNode::watchdog_callback, this));
+        watchdog_timer_->cancel(); // Al arrancar no se ha mandado ninguna velocidad: se activa con el primer comando
     }
 
     ~RobotTestNode(){
@@ -136,6 +144,13 @@ private:
         // rozum_motor3->actuation_motor.velocity = msg->joint_state_command.velocity[2];
         // rozum_motor3->set_velocity();
 
+        // Comprobar que llegan las 8 velocidades (3 Rozum + 5 Dynamixel) antes de acceder al vector
+        if (msg->joint_state_command.velocity.size() < 8) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                "Comando ignorado: se esperaban 8 velocidades y llegaron %zu", msg->joint_state_command.velocity.size());
+            return;
+        }
+
         try{ // Para que siga ejecutándose el programa aunque el bus CAN falle (en principio debería seguir funcionando)
             global_manipulator->set_velocities({  msg->joint_state_command.velocity[0],
                                                     msg->joint_state_command.velocity[1],
@@ -146,6 +161,9 @@ private:
                                                         msg->joint_state_command.velocity[5],
                                                         msg->joint_state_command.velocity[6],
                                                         msg->joint_state_command.velocity[7]});
+            // Solo se refresca el watchdog si el comando se ha enviado correctamente.
+            // reset() reinicia la cuenta atrás (y reactiva el timer si estaba cancelado)
+            watchdog_timer_->reset();
         }
         catch (const std::exception &e)
         {
@@ -154,6 +172,19 @@ private:
             return;
         }
 
+    }
+
+    void watchdog_callback() {
+        // Si entra aquí es que han pasado cmd_timeout_ms sin comandos válidos
+        try {
+            watchdog_timer_->cancel(); // Parados: no se vuelve a escribir en los buses hasta el siguiente comando
+            global_manipulator->set_velocities({0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0});
+            RCLCPP_WARN(this->get_logger(), "Watchdog: sin comandos durante %d ms. Motores parados.", cmd_timeout_ms);
+        }
+        catch (const std::exception &e) {
+            // No se cancela el timer: se reintenta dentro de cmd_timeout_ms
+            RCLCPP_ERROR(this->get_logger(), "Watchdog: error al parar los motores: %s", e.what());
+        }
     }
 
     void publish_state() {
@@ -276,6 +307,10 @@ private:
     rclcpp::Publisher<manipulator_msgs::msg::ManipulatorMotorStage>::SharedPtr pub_;
     rclcpp::TimerBase::SharedPtr timer_;
     int timer_period_ms;
+
+    // --- Watchdog de comandos ---
+    rclcpp::TimerBase::SharedPtr watchdog_timer_;
+    int cmd_timeout_ms;
 };
 
 
